@@ -1,0 +1,15 @@
+import fs from 'fs';
+
+import './config.js';
+
+import fetcher from './src/utils/toodegoFetcher.js';
+
+import { importInstructions } from './src/instructions.js';
+import { importPayments } from './src/payments.js';
+
+fs.writeFileSync(process.env.LOG_FILE, '');
+
+// console.log(fetcher.getFormUrl(process.env.TOODEGO_INSTRUCTION_PATH, 425));
+
+// await importInstructions();
+// await importPayments();
