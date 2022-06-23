@@ -1,0 +1,27 @@
+instruction_rsj
+ - add surname
+ - remove secondName
+ - remove address
+ - remove additionalAddress
+ - remove city
+ - remove postalCode
+ - remove beginDateAddress
+ - take corresponding residentialAddressId
+ - take corresponding postalAddressId
+ - change noSupportCause to taxSituation
+ - put youngAdultContract in instruction_rsj_mobilized_plan
+ - change parentsOrPartnerOnRsa to parentsOnRsa
+ - remove assignedDoctor
+ - remove vacationInPast12Months
+ - remove residentialStatus
+ - remove ccasDomiciliation
+ - remove highestDegree
+ - remove drivingLicense
+ - remove peRegistration
+ - remove rqth
+ - remove localMission
+ - change comment to situationComment
+ - remove qPVId
+ - remove degreeId
+
+remove instruction_rsj_transport_mode

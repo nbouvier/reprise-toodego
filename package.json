@@ -1,0 +1,19 @@
+{
+  "name": "reprise-toodego",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev" : "node ./main.js",
+    "prod" : "node ./main.js prod"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.0.0",
+    "node-fetch": "^3.2.4",
+    "pg": "^8.7.3"
+  },
+  "type": "module"
+}
