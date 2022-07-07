@@ -1,4 +1,4 @@
-export function buildSqlSelect({ _select = [ '*' ], _from, _where, _orderBy, _limit, _subquery }) {
+export function getSelect({ _select = [ '*' ], _from, _where, _orderBy, _limit, _subquery }) {
     const select = `SELECT ${_select.join(', ')}`;
     const from = _from ? ` FROM ${_from.join(', ')}` : '';
     const where = _where ? ` WHERE ${_where.join(' AND ')}` : '';
@@ -10,29 +10,41 @@ export function buildSqlSelect({ _select = [ '*' ], _from, _where, _orderBy, _li
     return `${queryStart}${select}${from}${where}${orderBy}${limit}${queryEnd}`;
 }
 
-export function buildSqlUpdate({ _update, _set, _from, _where }) {
+export function getUpdate({ _update, _set, _from, _where }) {
     const update = `UPDATE ${_update}`;
     const set = ` SET ${_set.join(', ')}`;
     const from = _from ? ` FROM ${_from.join(', ')}` : '';
-    const where = ` WHERE ${_where.join(' AND ')}`;
+    const where = _where ? ` WHERE ${_where.join(' AND ')}` : '';
 
     return `${update}${set}${from}${where};`;
 }
 
-export function buildSqlInsert({ _insert, _into, _values, _id }) {
+export function getInsert({ _insert, _into, _values, _id }) {
     const insert = _insert ? ` (${_insert.join(', ')})` : '';
     const into = `INSERT INTO ${_into}`;
     const values = ` VALUES (${_values.map(row => row.join(', ')).join('), ')})`;
 
-    const id = _id || 'id';
-    const select = buildSqlSelect({
-        _select: [ `CURRVAL(pg_get_serial_sequence('${_into}', '${id}')) AS "${id}"` ]
+    const id = _id || '"id"';
+    const select = getSelect({
+        _select: [ id ],
+        _from: [ _into ],
+        _orderBy: [ `${id} DESC` ],
+        _limit: 1
     });
 
     return `${into}${insert}${values};${select}`;
 }
 
+export function getDelete({ _from, _where }) {
+    const from = `DELETE FROM ${_from}`;
+    const where = _where ? ` WHERE ${_where.join(' AND ')}` : '';
+
+    return `${from}${where};`;
+}
+
 export function parseString(_string) {
+    if(_string == null) { return null; }
+
     let filteredString = _string.replaceAll('\'', '\'\'')
                                 .replaceAll('\n', '')
                                 .replaceAll('<br>', '')
@@ -42,6 +54,6 @@ export function parseString(_string) {
     return `'${filteredString}'`;
 }
 
-const sqlBuilder = { buildSqlSelect, buildSqlUpdate, buildSqlInsert, parseString };
+const sqlBuilder = { getSelect, getUpdate, getInsert, getDelete, parseString };
 
 export default sqlBuilder;
