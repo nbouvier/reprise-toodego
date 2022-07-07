@@ -1,65 +1,89 @@
-import fs from 'fs';
-
 import db from './database/database.js';
 
 import logger from './utils/logger.js';
-import { buildSqlSelect, buildSqlUpdate, parseString } from './utils/sqlBuilder.js';
+import sqlBuilder from './utils/sqlBuilder.js';
 
 // Create RSJ folder
 export async function importRsjFolder(_beneficiaryId, _data) {
     logger.log(`Creating RSJ folder ...`);
-    insertBeneficiaryRsj(_beneficiaryId);
+    await insertBeneficiaryRsj(_beneficiaryId);
 }
 
 export async function getId(_insertisId) {
-    const sql = buildSqlSelect({
+    const sql = sqlBuilder.getSelect({
         _select: [ '"id"' ],
         _from: [ '"beneficiary"' ],
-        _where: [ `"insertisId" = ${parseString(_insertisId)}` ],
-        _subquery: true
+        _where: [ `"insertisId" = ${sqlBuilder.parseString(_insertisId)}` ]
     });
 
     const res = await db.query(sql);
     return res.rows[0]?.id;
 }
 
-export function getSqlSelectIdRsj(_insertisId) {
-    return buildSqlSelect({
+export async function getRsjId(_insertisId) {
+    const sql = sqlBuilder.getSelect({
         _select: [ 'brsj."id"' ],
         _from: [ '"beneficiary_rsj" brsj', '"beneficiary" b' ],
-        _where: [ 'brsj."beneficiaryId" = b."id"', `b."insertisId" = ${parseString(_insertisId)}` ],
-        _subquery: true
+        _where: [ 'brsj."beneficiaryId" = b."id"', `b."insertisId" = ${sqlBuilder.parseString(_insertisId)}` ]
     });
+
+    const res = await db.query(sql);
+    return res.rows[0]?.id;
 }
 
-export function getSqlUpdateAfterRib(_insertisId, _paymentDataId) {
-    return buildSqlUpdate({
-        _update: [ '"beneficiary_rsj" brsj' ],
-        _set: [ `"paymentDataId" = ${_paymentDataId}` ],
+export async function getRibId(_beneficiaryRsjId) {
+    const sql = sqlBuilder.getSelect({
+        _select: [ '"paymentDataId"' ],
+        _from: [ '"beneficiary_rsj"' ],
+        _where: [ `"id" = ${_beneficiaryRsjId}` ]
+    });
+
+    const res = await db.query(sql);
+    return res.rows[0]?.paymentDataId;
+}
+
+export async function updateResidentialStatus(_beneficiaryId, _residentialStatus) {
+    const sql = sqlBuilder.getUpdate({
+        _update: '"beneficiary_address" ba',
+        _set: [ `"residentialStatus" = ${sqlBuilder.parseString(_residentialStatus)}` ],
         _from: [ '"beneficiary" b' ],
-        _where: [ 'brsj."beneficiaryId" = b."id"', `b."insertisId" = ${parseString(_insertisId)}` ]
-    });
-}
-
-export function getSqlUpdateAfterNextPayment(_insertisId, _nextPaymentId) {
-    return buildSqlUpdate({
-        _update: [ '"beneficiary_rsj" brsj' ],
-        _set: [ `"nextPaymentId" = ${_nextPaymentId}` ],
-        _from: [ '"beneficiary" b' ],
-        _where: [ 'brsj."beneficiaryId" = b."id"', `b."insertisId" = ${parseString(_insertisId)}` ]
-    });
-}
-
-async function insertBeneficiaryRsj(_beneficiaryId) {
-    const sql = buildSqlInsert({
-        _insert: [ '"stateId"', '"beneficiaryId"' ],
-        _into: '"beneficiary_rsj"',
-        _values: [ [ '1', _beneficiaryId ] ]
+        _where: [ 'ba."id" = b."residentialAddressId"', `b."id" = ${_beneficiaryId}`, 'ba."residentialStatus" IS null' ]
     });
 
     await db.query(sql);
 }
 
-const beneficiaries = { getId, getSqlSelectIdRsj, getSqlUpdateAfterRib, getSqlUpdateAfterNextPayment };
+export async function updateRibId(_beneficiaryId, _paymentDataId) {
+    const sql = sqlBuilder.getUpdate({
+        _update: [ '"beneficiary_rsj"' ],
+        _set: [ `"paymentDataId" = ${_paymentDataId}` ],
+        _where: [ `"beneficiaryId" = ${_beneficiaryId}` ]
+    });
+
+    await db.query(sql);
+}
+
+export async function updateNextPaymentId(_beneficiaryId, _nextPaymentId) {
+    const sql = sqlBuilder.getUpdate({
+        _update: [ '"beneficiary_rsj"' ],
+        _set: [ `"nextPaymentId" = ${_nextPaymentId}` ],
+        _where: [ `"beneficiaryId" = ${_beneficiaryId}` ]
+    });
+
+    await db.query(sql);
+}
+
+export async function insertBeneficiaryRsj(_beneficiaryId) {
+    const sql = sqlBuilder.getInsert({
+        _insert: [ '"stateId"', '"beneficiaryId"' ],
+        _into: '"beneficiary_rsj"',
+        _values: [ [ '7', _beneficiaryId ] ]
+    });
+
+    const res = await db.query(sql);
+    return res[1].rows[0].id;
+}
+
+const beneficiaries = { getId, getRsjId, getRibId, updateResidentialStatus, updateRibId, updateNextPaymentId };
 
 export default beneficiaries;

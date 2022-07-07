@@ -1,25 +1,23 @@
 import fs from 'fs';
 
-const PATH = process.env.LOG_FILE;
+const TYPES = { NULL: '', INFO: '[INFO] ', ERROR: '[ERROR] ', WARNING: '[WARNING] ' };
 
-const TYPE = { INFO: '[INFO]', ERROR: '[ERROR]', WARNING: '[WARNING]' };
-
-export function log(_msg, _type) {
-    const msg = `${TYPE[_type]}${_msg}`;
-    fs.appendFileSync(PATH, msg);
+export function log(_msg, _type = TYPES.NULL) {
+    const msg = `${_type}${_msg}\n`;
+    fs.appendFileSync(process.env.LOG_FILE, msg);
     console.log(msg);
 }
 
 export function info(_msg) {
-    log(_msg, TYPE.INFO);
+    log(_msg, TYPES.INFO);
 }
 
 export function error(_msg) {
-    log(_msg, TYPE.ERROR);
+    log(_msg, TYPES.ERROR);
 }
 
 export function warning(_msg) {
-    log(_msg, TYPE.WARNING);
+    log(_msg, TYPES.WARNING);
 }
 
 const logger = { log, info, error, warning };

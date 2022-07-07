@@ -8,37 +8,32 @@ const RETRY_COOLDOWN = 2000;
 
 var connection;
 
-async function connect() {
-    logger.info(`[LOG] database.js Connecting database`);
-    connection = new pg.Client(config);
+function connect() {
+    const connection = new pg.Client(config.get());
 
-    connection.connect(error => {
-        if(error) {
-            logger.error(`database.js ${error}`);
-            setTimeout(connect, RETRY_COOLDOWN);
-        }
-    });
-
-    connection.on('error', function(error) {
-        logger.error(`database.js ${error}`);
-        if(error.code === 'PROTOCOL_CONNECTION_LOST') { connect(); }
-        else throw error;
-    });
-}
-
-export function query(sql, params = []) {
     return new Promise((resolve, reject) => {
-        connection.query(sql, params, (err, results, fields) => {
-            if (!err) { resolve(results); }
-            else {
-                logger.error(`database.js:query ${err}.`);
-                reject(err);
-            }
+        connection.connect(error => {
+            if(error) {
+                logger.error(`database.js ${error}`);
+                setTimeout(connect, RETRY_COOLDOWN);
+            } else { resolve(connection); }
         });
     });
 }
 
-connect();
+export async function query(sql, params = []) {
+    const connection = await connect();
+
+    return new Promise((resolve, reject) => {
+        connection.query(sql, params, (err, results, fields) => {
+            connection.end();
+            if (err) {
+                logger.error(`database.js:query ${err}.\n${sql}`);
+                reject(err);
+            } else { resolve(results); }
+        });
+    });
+}
 
 const db = { query };
 

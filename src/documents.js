@@ -1,10 +1,8 @@
-import fs from 'fs';
-
 import db from './database/database.js';
 
 import logger from './utils/logger.js';
 import { encrypt } from './utils/encryption.js';
-import { buildSqlSelect, buildSqlInsert, parseString } from './utils/sqlBuilder.js';
+import sqlBuilder from './utils/sqlBuilder.js';
 
 import users from './users.js';
 import beneficiaries from './beneficiaries.js';
@@ -17,6 +15,12 @@ export async function importNationalityDocuments(_beneficiaryId, _data) {
     const nationalityMapping = TYPE_JUSTIFICATIF_IDENTITE[_data.fields.nationalite_raw];
     const mapping = nationalityMapping.values[_data.fields[nationalityMapping.field]];
 
+    const userId = await users.getId('insertis@grandlyon.com');
+    if (!userId) {
+        logger.error(`User not found with email insertis@grandlyon.com.`);
+        return;
+    }
+
     var documents = {};
     logger.log(`Processing nationality documents ...`);
     for (let i=0; i<mapping.toodego.fileVar.length; i++) {
@@ -25,6 +29,7 @@ export async function importNationalityDocuments(_beneficiaryId, _data) {
 
         documents[mapping.insertis.fileVar[i]] = await insert({
             _title: mapping.insertis.fileTitle[i],
+            _userId: userId,
             _fileName: mapping.insertis.fileName[i],
             _fileType: documentData.filename.split('.').pop(),
             _insertisId: _data.fields.identifiant_insertis,
@@ -48,6 +53,12 @@ export async function importNationalityDocuments(_beneficiaryId, _data) {
 export async function importDwellingDocuments(_beneficiaryId, _data) {
     const mapping = TYPE_JUSTIFICATIF_DOMICILIATION[_data.fields.hebergement_raw];
 
+    const userId = await users.getId('insertis@grandlyon.com');
+    if (!userId) {
+        logger.error(`User not found with email insertis@grandlyon.com.`);
+        return;
+    }
+
     var documents = {};
     logger.log(`Processing dwelling documents ...`);
     for (let i=0; i<mapping.toodego.fileVar.length; i++) {
@@ -56,6 +67,7 @@ export async function importDwellingDocuments(_beneficiaryId, _data) {
 
         documents[mapping.insertis.fileVar[i]] = await insert({
             _title: mapping.insertis.fileTitle[i],
+            _userId: userId,
             _fileName: mapping.insertis.fileName[i],
             _fileType: documentData.filename.split('.').pop(),
             _insertisId: _data.fields.identifiant_insertis,
@@ -67,15 +79,21 @@ export async function importDwellingDocuments(_beneficiaryId, _data) {
     logger.log(`Updating instructions ...`);
     const instructionIds = await instructions.getAllIds(_beneficiaryId);
 
-    await instructions.updateAfterDwellingDocuments(instructionIds, mapping.insertis.value, documents);
+    await instructions.updateAfterDwellingDocuments(instructionIds, documents);
+    await beneficiaries.updateResidentialStatus(_beneficiaryId, mapping.insertis.value);
 }
 
 // Import banking document
 export async function importBankingDocument(_beneficiaryId, _data) {
-    logger.log(`Importing banking document ...`);
+    const userId = await users.getId('insertis@grandlyon.com');
+    if (!userId) {
+        logger.error(`User not found with email insertis@grandlyon.com.`);
+        return;
+    }
 
-    await insert({
+    return await insert({
         _title: 'Relevé d\'identité bancaire',
+        _userId: userId,
         _fileName: 'RIB',
         _fileType: 'pdf',
         _insertisId: _data.fields.identifiant_insertis,
@@ -86,52 +104,48 @@ export async function importBankingDocument(_beneficiaryId, _data) {
 
 // Import other document
 // Update instruction data
-export async function importOtherDocument(_data, _comment, _instrutionId) {
-    const insertisId = _data.fields.identifiant_insertis;
+export async function importOtherDocument(_instrutionId, _data, _comment) {
+    logger.log(`Importing  other document ...`);
 
-    console.log(`Importing  other document ...`);
+    const userId = await users.getId('insertis@grandlyon.com');
+    if (!userId) {
+        logger.error(`User not found with email insertis@grandlyon.com.`);
+        return;
+    }
 
-    let sql = await getSqlInsert({
-         _title: 'Autre',
-         _fileName: 'autre',
-         _fileType: _data.filename.split('.').pop(),
-         _insertisId: insertisId,
-         _data: _data.content,
-         _date: _data.date
+    const documentId = await insert({
+      _title: 'Autre',
+      _userId: userId,
+      _fileName: 'autre',
+      _fileType: _data.filename.split('.').pop(),
+      _insertisId: insertisId,
+      _data: _data.content,
+      _date: _data.date
     });
 
-    fs.appendFileSync(process.env.LOG_FILE, sql);
-    await db.query(sql);
-
-    console.log('Updating instruction ...');
-    const documentQuery = documents.getSqlSelectLastId(insertisId, 'Autre');
-
-    sql = instructions.getSqlInsertAfterOtherDocument(documentQuery, _comment, _instrutionId);
-
-    fs.appendFileSync(process.env.LOG_FILE, sql);
-    await db.query(sql);
+    logger.log('Updating instruction ...');
+    await instructions.insertAfterOtherDocument(_instrutionId, documentId, _comment);
 }
 
-function getSqlSelectTitleId(_title) {
-    return buildSqlSelect({
+export function getSqlSelectTitleId(_title) {
+    return sqlBuilder.getSelect({
         _select: [ '"id"' ],
         _from: [ '"document_title"' ],
-        _where: [ `"label" = ${parseString(_title)}`, `"tag" = 'rsj'` ],
+        _where: [ `"label" = ${sqlBuilder.parseString(_title)}`, `"tag" = 'rsj'` ],
         _subquery: true
     });
 }
 
-async function insert({ _title, _importDate, _user, _fileName, _fileType, _insertisId, _beneficiaryId, _data }) {
+export async function insert({ _title, _importDate, _userId, _fileName, _fileType, _insertisId, _beneficiaryId, _data }) {
     const titleQuery = getSqlSelectTitleId(_title);
     const importDate = _importDate || new Date().toISOString().substr(0, 10);
-    const userQuery = users.getSqlSelectId(_user || 'insertis@grandlyon.com');
-    const encryptedFileName = parseString(await encrypt(`${_insertisId}_${_fileName}_${Date.now()}.${_fileType}`));
-    const encryptedFileData = parseString(await encrypt(_data));
+    const encryptedFileName = sqlBuilder.parseString(await encrypt(`${_insertisId}_${_fileName}_${Date.now()}.${_fileType}`));
+    const encryptedFileData = sqlBuilder.parseString(await encrypt(_data));
 
-    const sql = buildSqlInsert({
+    const sql = sqlBuilder.getInsert({
         _insert: [ '"titleId"', '"importDate"', '"importedById"', '"filename"', '"beneficiaryId"', '"filedata"' ],
         _into: [ '"document"' ],
-        _values: [ [ titleQuery, `'${importDate}'`, userQuery, `${encryptedFileName}`, _beneficiaryId, `${encryptedFileData}` ] ]
+        _values: [ [ titleQuery, `'${importDate}'`, _userId, `${encryptedFileName}`, _beneficiaryId, `${encryptedFileData}` ] ]
     });
 
     const res = await db.query(sql);

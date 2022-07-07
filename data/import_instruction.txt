@@ -23,5 +23,7 @@ instruction_rsj
  - change comment to situationComment
  - remove qPVId
  - remove degreeId
+ - add status
+ - add statusDate
 
 remove instruction_rsj_transport_mode

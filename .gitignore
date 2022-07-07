@@ -1,9 +1,12 @@
 .env
+.env.dev
 .env.test
 
 node_modules/
 package-lock.json
 
 log.txt
+log-dev.txt
+log-test.txt
 
 .git/

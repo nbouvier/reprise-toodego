@@ -1,11 +1,22 @@
 import dotenv from 'dotenv';
 
-var path;
-if (process.argv[2] == 'live') {
-    console.log('Warning, running in live mode !');
-    path = './.env';
-} else {
-    path = './.env.test';
+import logger from './src/utils/logger.js';
+
+export function live() {
+    dotenv.config({ path: './.env' });
+    logger.log('Running in live mode.');
 }
 
-dotenv.config({ path });
+export function dev() {
+    dotenv.config({ path: './.env.dev' });
+    logger.log('Running in dev mode.');
+}
+
+export function test() {
+    dotenv.config({ path: './.env.test' });
+    logger.log('Running in test mode.');
+}
+
+const config = { live, dev, test };
+
+export default config;

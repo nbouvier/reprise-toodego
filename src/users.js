@@ -1,14 +1,16 @@
-import { buildSqlSelect, parseString } from './utils/sqlBuilder.js';
+import sqlBuilder from './utils/sqlBuilder.js';
 
-export function getSqlSelectId(_email) {
-    return buildSqlSelect({
+export async function getId(_email) {
+    const sql = sqlBuilder.getSelect({
         _select: [ '"id"' ],
         _from: [ '"user"' ],
-        _where: [ `"email" = ${parseString(_email)}` ],
-        _subquery: true
+        _where: [ `"email" = ${sqlBuilder.parseString(_email)}` ]
     });
+
+    const res = await db.query(sql);
+    return res.rows[0]?.id;
 }
 
-const users = { getSqlSelectId };
+const users = { getId };
 
 export default users;
