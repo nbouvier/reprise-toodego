@@ -40,7 +40,7 @@ describe('instructions.js', function() {
     });
 
     describe('#updateAfterNationalityDocuments()', function() {
-        let row;
+        let rows;
 
         before(async function() {
             await instructions.updateAfterNationalityDocuments(
@@ -56,23 +56,19 @@ describe('instructions.js', function() {
                 _where: [ '"id" IN (1, 2)' ]
             });
             const res = await db.query(sql);
-            row = res.rows[0];
+            rows = res.rows;
         });
 
-        it('should update instruction_rsj.credentialType', async function() {
+        it('should update instruction_rsj properties', async function() {
             for(let i=0; i<2; i++) {
-                expect(row?.credentialType).to.equal('ValidIdentityFr');
+                expect(rows[i]?.credentialType).to.equal('ValidIdentityFr');
             }
-        });
-        it('should update instruction_rsj.credentialDocumentIds', async function() {
             for(let i=0; i<2; i++) {
-                expect(row?.credentialDocument1Id).to.equal(1);
-                expect(row?.credentialDocument2Id).to.equal(2);
+                expect(rows[i]?.credentialDocument1Id).to.equal(1);
+                expect(rows[i]?.credentialDocument2Id).to.equal(2);
             }
-        });
-        it('should update instruction_rsj.credentialDocumentDates', async function() {
             for(let i=0; i<2; i++) {
-                let date = (new Date(row?.credentialDocumentDate1)).toLocaleDateString();
+                let date = (new Date(rows[i]?.credentialDocumentDate1)).toLocaleDateString();
                 expect(date).to.equal('01/01/2010');
             }
         });
@@ -88,24 +84,27 @@ describe('instructions.js', function() {
     });
 
     describe('#updateAfterDwellingDocuments()', function() {
-        beforeEach(async function() {
-            await instructions.updateAfterDwellingDocuments([ 1, 2 ], { addressDocument1Id: 1 });
-        });
+        let rows;
 
-        it('should update instruction_rsj.addressDocumentIds', async function() {
+        before(async function() {
+            await instructions.updateAfterDwellingDocuments([ 1, 2 ], { addressDocument1Id: 1 });
+
             const sql = sqlBuilder.getSelect({
                 _select: [ '"addressDocument1Id"' ],
                 _from: [ '"instruction_rsj"' ],
                 _where: [ '"id" IN (1, 2)' ]
             });
             const res = await db.query(sql);
+            rows = res.rows;
+        });
 
+        it('should update instruction_rsj properties', async function() {
             for(let i=0; i<2; i++) {
-                expect(res.rows[i]?.addressDocument1Id).to.equal(1);
+                expect(rows[i]?.addressDocument1Id).to.equal(1);
             }
         });
 
-        afterEach(async function() {
+        after(async function() {
             const sql = sqlBuilder.getUpdate({
                 _update: '"instruction_rsj"',
                 _set: [ '"addressDocument1Id" = null' ],
@@ -130,18 +129,130 @@ describe('instructions.js', function() {
             row = res.rows[0];
         });
 
-        it('should update instruction_rsj.paymentAmount', async function() {
+        it('should update instruction_rsj properties', async function() {
             expect(row?.paymentAmount).to.equal(400);
-        });
-        it('should update instruction_rsj.paymentDuration', async function() {
             expect(row?.paymentDuration).to.equal(3);
-        });
-        it('should update instruction_rsj.paymentOpinion', async function() {
             expect(row?.paymentOpinion).to.equal('test');
         });
 
         after(async function() {
             await instructions.updatePaymentDecision(1, null, null, null);
+        });
+    });
+
+    describe('#updatePaymentCounterDecision()', function() {
+        let row;
+
+        before(async function() {
+            await instructions.updatePaymentCounterDecision(1, 400, 3, 'test');
+
+            const sql = sqlBuilder.getSelect({
+                _select: [ '"paymentCounterProposal"', '"paymentCounterAmount"', '"paymentCounterDuration"::integer', '"paymentCounterComment"' ],
+                _from: [ '"instruction_rsj"' ],
+                _where: [ '"id" = 1' ]
+            });
+            const res = await db.query(sql);
+            row = res.rows[0];
+        });
+
+        it('should update instruction_rsj properties', async function() {
+            expect(row?.paymentCounterProposal).to.be.true;
+            expect(row?.paymentCounterAmount).to.equal(400);
+            expect(row?.paymentCounterDuration).to.equal(3);
+            expect(row?.paymentCounterComment).to.equal('test');
+        });
+
+        after(async function() {
+            await instructions.updatePaymentCounterDecision(1, null, null, null);
+        });
+    });
+
+    describe('#updateStates()', function() {
+        let rows;
+
+        before(async function() {
+            await instructions.updateStates();
+
+            const sql = sqlBuilder.getSelect({
+                _select: [ '"status"', '"statusDate"' ],
+                _from: [ '"instruction_rsj"' ],
+                _where: [ '"id" IN (1, 2, 3)' ],
+                _orderBy: [ '"id"' ]
+            });
+            const res = await db.query(sql);
+            rows = res.rows;
+        });
+
+        it('should update instruction_rsj properties', async function() {
+            expect(rows[0]?.status).to.equal('Acceptée');
+            let date = (new Date(rows[0]?.statusDate)).toLocaleDateString();
+            expect(date).to.equal('08/07/2022');
+
+            expect(rows[1]?.status).to.equal('Analyse en cours');
+            date = (new Date(rows[1]?.statusDate)).toLocaleDateString();
+            expect(date).to.equal('06/07/2022');
+        });
+        it('should not update wrong instruction_rsj properties', async function() {
+            expect(rows[2]?.status).to.equal('En création');
+            let date = (new Date(rows[2]?.statusDate)).toLocaleDateString();
+            expect(date).to.equal('01/01/2022');
+        });
+
+        after(async function() {
+            let sql = [];
+
+            sql.push(sqlBuilder.getUpdate({
+                _update: '"instruction_rsj"',
+                _set: [ `"status" = 'En création'`, `"statusDate" = '2022-01-01'` ],
+                _where: [ '"id" = 1' ]
+            }));
+
+            sql.push(sqlBuilder.getUpdate({
+                _update: '"instruction_rsj"',
+                _set: [ `"status" = 'En création'`, `"statusDate" = '2022-02-02'` ],
+                _where: [ '"id" = 2' ]
+            }));
+
+            await db.query(sql.join(''));
+        });
+    });
+
+    describe('#insertOtherDocument()', function() {
+        let row;
+
+        before(async function() {
+            await instructions.insertOtherDocument(1, 'no comment', 1);
+
+            const sql = sqlBuilder.getSelect({
+                _select: [ '"documentId"', '"comment"' ],
+                _from: [ '"instruction_rsj_other_document"' ],
+                _where: [ '"instructionRsjId" = 1' ]
+            });
+            const res = await db.query(sql);
+            row = res.rows[0];
+        });
+
+        it('should create a new instruction_rsj_other_document', async function() {
+            const sql = sqlBuilder.getSelect({
+                _select: [ 'COUNT(*)::integer AS "count"' ],
+                _from: [ '"instruction_rsj_other_document"' ],
+                _where: [ '"instructionRsjId" = 1' ]
+            });
+            const res = await db.query(sql);
+
+            expect(res.rows[0].count).to.equal(1);
+        });
+        it('should set instruction_rsj_other_document properties', async function() {
+            expect(row.documentId).to.equal(1);
+            expect(row.comment).to.equal('no comment');
+        });
+
+        after(async function() {
+            const sql = sqlBuilder.getDelete({
+                _from: [ '"instruction_rsj_other_document"' ],
+                _where: [ '"instructionRsjId" = 1' ]
+            });
+            await db.query(sql);
         });
     });
 

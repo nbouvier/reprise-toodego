@@ -111,38 +111,41 @@ export async function updatePaymentDecision(_instructionId, _amount, _months, _c
 }
 
 export async function updatePaymentCounterDecision(_instructionId, _amount, _months, _comment) {
+    const counterProposal = _amount && _months ? true : null;
+
     const sql = sqlBuilder.getUpdate({
         _update: '"instruction_rsj"',
-        _set: [ '"paymentCounterProposal" = true', `"paymentCounterAmount"  = ${_amount}`, `"paymentCounterDuration" = ${_months}`, `"paymentCounterOpinion"  = ${sqlBuilder.parseString(_comment)}` ],
+        _set: [ `"paymentCounterProposal" = ${counterProposal}`, `"paymentCounterAmount"  = ${_amount}`, `"paymentCounterDuration" = ${_months}`, `"paymentCounterComment"  = ${sqlBuilder.parseString(_comment)}` ],
         _where: [ `"id" = ${_instructionId}` ]
     });
 
     await db.query(sql);
 }
 
-async function updateAfterStates() {
-    const lastStatesQuery = getSqlSelectLastState();
+export async function updateStates() {
+    const lastStatesQuery = states.getSqlSelectLastStates();
 
     const sql = sqlBuilder.getUpdate({
-        _update: '"instruction_rsj" ir',
-        _set: [ 'ir."status" = t."status"', 'ir."statusDate" = t."statusDate"' ],
+        _update: '"instruction_rsj"',
+        _set: [ '"status" = t."status"', '"statusDate" = t."statusDate"' ],
         _from: [ `${lastStatesQuery} t` ],
-        _where: [ 'ir."id" = t."instructionRsjId"' ]
+        _where: [ '"id" = t."instructionRsjId"' ]
     });
 
     await db.query(sql);
 }
 
-export async function insertAfterOtherDocument(_documentId, _comment, _instructionId) {
+export async function insertOtherDocument(_documentId, _comment, _instructionId) {
     const sql = sqlBuilder.getInsert({
         _insert: [ '"instructionRsjId"', '"documentId"', '"comment"' ],
         _into: '"instruction_rsj_other_document"',
-        _values: [ [ _instrutionId, sqlBuilder.parseString(_comment), _documentId ] ]
+        _values: [ [ _instructionId, _documentId, sqlBuilder.parseString(_comment) ] ],
+        _id: null
     });
 
     await db.query(sql);
 }
 
-const instructions = { importInstructions, getAllIds, getClosestInstructionId, updateAfterNationalityDocuments, updateAfterDwellingDocuments, updatePaymentDecision, updatePaymentCounterDecision, insertAfterOtherDocument };
+const instructions = { importInstructions, getAllIds, getClosestInstructionId, updateAfterNationalityDocuments, updateAfterDwellingDocuments, updatePaymentDecision, updatePaymentCounterDecision, updateStates, insertOtherDocument };
 
 export default instructions;

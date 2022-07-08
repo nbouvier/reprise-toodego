@@ -24,13 +24,16 @@ export function getInsert({ _insert, _into, _values, _id }) {
     const into = `INSERT INTO ${_into}`;
     const values = ` VALUES (${_values.map(row => row.join(', ')).join('), ')})`;
 
-    const id = _id || '"id"';
-    const select = getSelect({
-        _select: [ id ],
-        _from: [ _into ],
-        _orderBy: [ `${id} DESC` ],
-        _limit: 1
-    });
+    let select = '';
+    if(_id !== null) {
+        const id = _id || '"id"';
+        select = getSelect({
+            _select: [ id ],
+            _from: [ _into ],
+            _orderBy: [ `${id} DESC` ],
+            _limit: 1
+        });
+    }
 
     return `${into}${insert}${values};${select}`;
 }
