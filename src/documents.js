@@ -124,7 +124,7 @@ export async function importOtherDocument(_instrutionId, _data, _comment) {
     });
 
     logger.log('Updating instruction ...');
-    await instructions.insertAfterOtherDocument(_instrutionId, documentId, _comment);
+    await instructions.insertOtherDocument(_instrutionId, documentId, _comment);
 }
 
 export function getSqlSelectTitleId(_title) {

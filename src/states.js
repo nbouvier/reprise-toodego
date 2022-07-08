@@ -57,20 +57,21 @@ async function importStates(_beneficiaryId, _data) {
         await insert(instructionId, state, date, comment);
     }
 
-    await instructions.updateAfterStates();
+    await instructions.updateStates();
 }
 
-function getSqlSelectLastStates() {
+export function getSqlSelectLastStates() {
     return sqlBuilder.getSelect({
-        _select: [ 'DISTINCT ON ("contractIerId") "contractIerId"' , '"statusDate"', '"status"' ],
+        _select: [ 'DISTINCT ON ("instructionRsjId") "instructionRsjId"' , '"statusDate"', '"status"' ],
         _from: [ '"traceability"' ],
+        _orderBy: [ '"instructionRsjId"', '"statusDate" DESC' ],
         _subquery: true
     });
 }
 
 async function insert(_instructionId, _state, _date, _comment) {
     const sql = sqlBuilder.getInsert({
-        _insert: [ '"statusDate"', '"status"', '"comment"', '"instructionId"' ],
+        _insert: [ '"statusDate"', '"status"', '"comment"', '"instructionRsjId"' ],
         _into: "traceability",
         _values: [ [ sqlBuilder.parseString(_state), `'${_date}'`, sqlBuilder.parseString(_comment), _instructionId ] ]
     });
@@ -78,6 +79,6 @@ async function insert(_instructionId, _state, _date, _comment) {
     await db.query(sql);
 }
 
-const states = { insert };
+const states = { getSqlSelectLastStates, insert };
 
 export default states;
