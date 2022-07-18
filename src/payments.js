@@ -81,7 +81,7 @@ export function importNextPaymentData() {
     // Je créer des paiements
 }
 
-function getSqlSelectStateId(_state) {
+export function getSqlSelectStateId(_state) {
     return sqlBuilder.getSelect({
         _select: [ '"id"' ],
         _from: [ '"rsj_payment_state"' ],
@@ -90,7 +90,7 @@ function getSqlSelectStateId(_state) {
     });
 }
 
-function getSqlSelectRemainingPayment() {
+export function getSqlSelectRemainingPayment() {
     return sqlBuilder.getSelect({
         _select: [ '"beneficiaryRsjId"', 'COUNT(*) AS "count"' ],
         _from: [ '"rsj_payment"' ],
@@ -99,7 +99,7 @@ function getSqlSelectRemainingPayment() {
     });
 }
 
-async function updateRemainingPayments() {
+export async function updateRemainingPayments() {
     const remainingPaymentQuery = getSqlSelectRemainingPayment();
 
     const sql = sqlBuilder.getUpdate({
@@ -108,26 +108,27 @@ async function updateRemainingPayments() {
         _from: [ '"beneficiary_rsj" brsj', `${remainingPaymentQuery} c` ],
         _where: [ 'brsj."id" = c."beneficiaryRsjId"', 'np."id" = brsj."nextPaymentId"' ]
     });
-
+    
     await db.query(sql);
 }
 
-async function insert(_beneficiaryRsjId, _instructionId, _ribId, _data) {
+export async function insert(_beneficiaryRsjId, _instructionId, _ribId, _data) {
     const stateDate = _data.last_update_time.substr(0, 10);
     const stateQuery = getSqlSelectStateId('Réalisé');
     const amount = _data.fields.montant_verse;
     const paymentMonth = _data.receipt_time.substr(0, 10);
 
     const sql = sqlBuilder.getInsert({
-      _insert: [ "paymentDataId", "stateDate", "stateId", "amount", "paymentMonth", "beneficiaryRsjId" ],
+      _insert: [ '"paymentDataId"', '"stateDate"', '"stateId"', '"amount"', '"paymentMonth"', '"beneficiaryRsjId"', '"instructionRsjId"' ],
       _into: '"rsj_payment"',
-      _values: [ [ _ribId, `'${stateDate}'`, stateQuery, amount, _instrutionId, _beneficiaryRsjId ] ]
+      _values: [ [ _ribId, `'${stateDate}'`, stateQuery, amount, `'${paymentMonth}'`, _beneficiaryRsjId, _instructionId ] ]
     });
 
-    await db.query(sql);
+    const res = await db.query(sql);
+    return res[1].rows[0].id;
 }
 
-async function insertNextPayment() {
+export async function insertNextPayment() {
     const sql = sqlBuilder.getInsert({
         _insert: [ '"remainingPayment"' ],
         _into: '"rsj_next_payment"',

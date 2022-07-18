@@ -32,10 +32,10 @@ describe('beneficiaries.js', function() {
     });
 
     describe('#getRibId()', function() {
-        it('should return beneficiary_rsj.ribId', async function() {
+        it('should return beneficiary_rsj.paymentDataId', async function() {
             expect(await beneficiaries.getRibId(1)).to.equal(1);
         });
-        it('should return null if beneficiary.ribId is null', async function() {
+        it('should return null if beneficiary_rsj.paymentDataId is null', async function() {
             expect(await beneficiaries.getRibId(2)).to.be.null;
         });
         it('should return undefined if beneficiary_rsj does not exist', async function() {
@@ -56,7 +56,7 @@ describe('beneficiaries.js', function() {
             });
             const res = await db.query(sql);
 
-            expect(res.rows[0]?.residentialStatus).to.equal('Tenant');
+            expect(res.rows[0].residentialStatus).to.equal('Tenant');
         });
 
         afterEach(async function() {
@@ -77,7 +77,7 @@ describe('beneficiaries.js', function() {
             });
             const res = await db.query(sql);
 
-            expect(res.rows[0]?.paymentDataId).to.equal(1);
+            expect(res.rows[0].paymentDataId).to.equal(1);
         });
 
         afterEach(async function() {
@@ -98,7 +98,7 @@ describe('beneficiaries.js', function() {
             });
             const res = await db.query(sql);
 
-            expect(res.rows[0]?.nextPaymentId).to.equal(1);
+            expect(res.rows[0].nextPaymentId).to.equal(1);
         });
 
         afterEach(async function() {

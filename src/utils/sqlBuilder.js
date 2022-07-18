@@ -1,13 +1,14 @@
-export function getSelect({ _select = [ '*' ], _from, _where, _orderBy, _limit, _subquery }) {
+export function getSelect({ _select = [ '*' ], _from, _where, _groupBy, _orderBy, _limit, _subquery }) {
     const select = `SELECT ${_select.join(', ')}`;
     const from = _from ? ` FROM ${_from.join(', ')}` : '';
     const where = _where ? ` WHERE ${_where.join(' AND ')}` : '';
+    const groupBy = _groupBy ? ` GROUP BY ${_groupBy.join(', ')}` : '';
     const orderBy = _orderBy ? ` ORDER BY ${_orderBy.join(', ')}` : '';
     const limit = _limit ? ` LIMIT ${_limit}` : '';
     const queryStart = _subquery ? '(' : '';
     const queryEnd = _subquery ? ')' : ';';
 
-    return `${queryStart}${select}${from}${where}${orderBy}${limit}${queryEnd}`;
+    return `${queryStart}${select}${from}${where}${groupBy}${orderBy}${limit}${queryEnd}`;
 }
 
 export function getUpdate({ _update, _set, _from, _where }) {

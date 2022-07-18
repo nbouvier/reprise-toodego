@@ -61,14 +61,14 @@ describe('instructions.js', function() {
 
         it('should update instruction_rsj properties', async function() {
             for(let i=0; i<2; i++) {
-                expect(rows[i]?.credentialType).to.equal('ValidIdentityFr');
+                expect(rows[i].credentialType).to.equal('ValidIdentityFr');
             }
             for(let i=0; i<2; i++) {
-                expect(rows[i]?.credentialDocument1Id).to.equal(1);
-                expect(rows[i]?.credentialDocument2Id).to.equal(2);
+                expect(rows[i].credentialDocument1Id).to.equal(1);
+                expect(rows[i].credentialDocument2Id).to.equal(2);
             }
             for(let i=0; i<2; i++) {
-                let date = (new Date(rows[i]?.credentialDocumentDate1)).toLocaleDateString();
+                let date = (new Date(rows[i].credentialDocumentDate1)).toLocaleDateString();
                 expect(date).to.equal('01/01/2010');
             }
         });
@@ -100,7 +100,7 @@ describe('instructions.js', function() {
 
         it('should update instruction_rsj properties', async function() {
             for(let i=0; i<2; i++) {
-                expect(rows[i]?.addressDocument1Id).to.equal(1);
+                expect(rows[i].addressDocument1Id).to.equal(1);
             }
         });
 
@@ -130,9 +130,9 @@ describe('instructions.js', function() {
         });
 
         it('should update instruction_rsj properties', async function() {
-            expect(row?.paymentAmount).to.equal(400);
-            expect(row?.paymentDuration).to.equal(3);
-            expect(row?.paymentOpinion).to.equal('test');
+            expect(row.paymentAmount).to.equal(400);
+            expect(row.paymentDuration).to.equal(3);
+            expect(row.paymentOpinion).to.equal('test');
         });
 
         after(async function() {
@@ -156,10 +156,10 @@ describe('instructions.js', function() {
         });
 
         it('should update instruction_rsj properties', async function() {
-            expect(row?.paymentCounterProposal).to.be.true;
-            expect(row?.paymentCounterAmount).to.equal(400);
-            expect(row?.paymentCounterDuration).to.equal(3);
-            expect(row?.paymentCounterComment).to.equal('test');
+            expect(row.paymentCounterProposal).to.be.true;
+            expect(row.paymentCounterAmount).to.equal(400);
+            expect(row.paymentCounterDuration).to.equal(3);
+            expect(row.paymentCounterComment).to.equal('test');
         });
 
         after(async function() {
@@ -184,17 +184,17 @@ describe('instructions.js', function() {
         });
 
         it('should update instruction_rsj properties', async function() {
-            expect(rows[0]?.status).to.equal('Acceptée');
-            let date = (new Date(rows[0]?.statusDate)).toLocaleDateString();
+            expect(rows[0].status).to.equal('Acceptée');
+            let date = (new Date(rows[0].statusDate)).toLocaleDateString();
             expect(date).to.equal('08/07/2022');
 
-            expect(rows[1]?.status).to.equal('Analyse en cours');
-            date = (new Date(rows[1]?.statusDate)).toLocaleDateString();
+            expect(rows[1].status).to.equal('Analyse en cours');
+            date = (new Date(rows[1].statusDate)).toLocaleDateString();
             expect(date).to.equal('06/07/2022');
         });
         it('should not update wrong instruction_rsj properties', async function() {
-            expect(rows[2]?.status).to.equal('En création');
-            let date = (new Date(rows[2]?.statusDate)).toLocaleDateString();
+            expect(rows[2].status).to.equal('En création');
+            let date = (new Date(rows[2].statusDate)).toLocaleDateString();
             expect(date).to.equal('01/01/2022');
         });
 
