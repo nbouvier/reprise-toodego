@@ -1,3 +1,5 @@
+import db from './database/database.js';
+
 import sqlBuilder from './utils/sqlBuilder.js';
 
 export async function getId(_email) {

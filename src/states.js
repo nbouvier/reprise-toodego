@@ -73,10 +73,11 @@ async function insert(_instructionId, _state, _date, _comment) {
     const sql = sqlBuilder.getInsert({
         _insert: [ '"statusDate"', '"status"', '"comment"', '"instructionRsjId"' ],
         _into: "traceability",
-        _values: [ [ sqlBuilder.parseString(_state), `'${_date}'`, sqlBuilder.parseString(_comment), _instructionId ] ]
+        _values: [ [ `'${_date}'`, sqlBuilder.parseString(_state), sqlBuilder.parseString(_comment), _instructionId ] ]
     });
 
-    await db.query(sql);
+    const res = await db.query(sql);
+    return res[1]?.rows[0]?.id;
 }
 
 const states = { getSqlSelectLastStates, insert };
