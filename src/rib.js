@@ -26,13 +26,13 @@ export async function updateBeginDate(_beneficiaryId, _beginDate) {
         _update: '"rsj_payment_data" pd',
         _set: [ `"beginDate" = '${_beginDate}'` ],
         _from: [ '"beneficiary_rsj" brsj' ],
-        _where: [ `${_beneficiaryId} = brsj."beneficiaryId"`, 'brsj."paymentDataId" = pd."id"', `pd."beginDate" > '${beginDate}'` ]
+        _where: [ `${_beneficiaryId} = brsj."beneficiaryId"`, 'brsj."paymentDataId" = pd."id"', `pd."beginDate" > '${_beginDate}'` ]
     });
 
     await db.query(sql);
 }
 
-async function insert(_documentId, _data) {
+export async function insert(_documentId, _data) {
     const beginDate = _data.receipt_time.substr(0, 10);
     const encryptedFirstName = sqlBuilder.parseString(await encrypt(_data.fields.prenom_compte));
     const encryptedLastName = sqlBuilder.parseString(await encrypt(_data.fields.nom_compte));
