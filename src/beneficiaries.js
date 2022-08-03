@@ -9,6 +9,25 @@ export async function importRsjFolder(_beneficiaryId, _data) {
     await insertBeneficiaryRsj(_beneficiaryId);
 }
 
+export function getSqlSelectLastInstructionsId() {
+    return sqlBuilder.getSelect({
+        _select: [ 'DISTINCT ON ("beneficiaryId") "beneficiaryId"', '"id" AS "instructionRsjId"' ],
+        _from: [ '"instruction_rsj"' ],
+        _orderBy: [ '"beneficiaryId"', '"instructionDate" DESC', '"id" DESC' ],
+        _subquery: true
+    });
+}
+
+export function getSqlSelectLastAcceptedInstructionsId() {
+    return sqlBuilder.getSelect({
+        _select: [ 't."instructionRsjId"' ],
+        _from: [ '"traceability" t' ],
+        _join: [ { _table: getSqlSelectLastInstructionsId(), _as: 'a', _on: [ 'a."instructionRsjId" = t."instructionRsjId"' ] } ],
+        _where: [ `t."status" = 'Acceptée'` ],
+        _subquery: true
+    });
+}
+
 export async function getId(_insertisId) {
     const sql = sqlBuilder.getSelect({
         _select: [ '"id"' ],
@@ -84,6 +103,6 @@ export async function insertBeneficiaryRsj(_beneficiaryId) {
     return res[1].rows[0].id;
 }
 
-const beneficiaries = { getId, getRsjId, getRibId, updateResidentialStatus, updateRibId, updateNextPaymentId };
+const beneficiaries = { getSqlSelectLastAcceptedInstructionsId, getId, getRsjId, getRibId, updateResidentialStatus, updateRibId, updateNextPaymentId };
 
 export default beneficiaries;

@@ -6,16 +6,26 @@ import { expect } from 'chai';
 import db from '../../src/database/database.js';
 import sqlBuilder from '../../src/utils/sqlBuilder.js';
 
-import states from '../../src/states.js';
+import states, { getLastState } from '../../src/states.js';
 
 describe('states.js', function() {
 
     // TODO: Test import functions
 
-    describe('#getSqlSelectLastStates()', function() {
+    describe('#getSqlSelectInstructionsLastState()', function() {
         it('should return correct SQL subquery', async function() {
-            const sql = '(SELECT DISTINCT ON ("instructionRsjId") "instructionRsjId", "statusDate", "status" FROM "traceability" ORDER BY "instructionRsjId", "statusDate" DESC)'
-            expect(states.getSqlSelectLastStates()).to.equal(sql);
+            const sql = '(SELECT DISTINCT ON ("instructionRsjId") "instructionRsjId", "statusDate", "status", "id" AS "traceabilityId" FROM "traceability" ORDER BY "instructionRsjId", "statusDate" DESC, "id" DESC)';
+            expect(states.getSqlSelectInstructionsLastState()).to.equal(sql);
+        });
+    });
+
+    describe('#getLastState()', function() {
+        it('should return last traceability.status', async function() {
+            expect(await getLastState(1)).to.equal('Acceptée');
+            expect(await getLastState(2)).to.equal('Analyse en cours');
+        });
+        it('should return undefined if no traceability exists', async function() {
+            expect(await getLastState(3)).to.be.undefined;
         });
     });
 

@@ -7,22 +7,36 @@ import db from '../../src/database/database.js';
 import sqlBuilder from '../../src/utils/sqlBuilder.js';
 
 import beneficiaries from '../../src/beneficiaries.js';
-import payments, { getSqlSelectStateId, getSqlSelectRemainingPayment, updateRemainingPayments, insert, insertNextPayment } from '../../src/payments.js';
+import payments, { getSqlSelectInstructionPayments, getSqlSelectInstructionExpectedPayments, getSqlSelectStateId, getSqlSelectRemainingPayment, updateRemainingPayments, extractPaymentData, insert, insertNextPayment } from '../../src/payments.js';
 
 describe('payments.js', function() {
 
     // TODO: Test import functions
 
+    describe('#getSqlSelectInstructionPayments()', function() {
+        it('should return correct SQL subquery', async function() {
+            const sql = `(SELECT "instructionRsjId", COUNT(*) AS "numberOfPayments" FROM "rsj_payment" GROUP BY "instructionRsjId")`;
+            expect(await getSqlSelectInstructionPayments()).to.equal(sql);
+        });
+    });
+
+    describe('#getSqlSelectInstructionExpectedPayments()', function() {
+        it('should return correct SQL subquery', async function() {
+            const sql = `(SELECT "id" AS "instructionRsjId", CASE WHEN "paymentCounterProposal" = false THEN SUBSTRING("paymentDuration" FROM 1 FOR 1)::INTEGER WHEN "paymentCounterProposal" = true THEN SUBSTRING("paymentCounterDuration" FROM 1 FOR 1)::INTEGER END AS "expectedNumberOfPayments" FROM "instruction_rsj")`;
+            expect(await getSqlSelectInstructionExpectedPayments()).to.equal(sql);
+        });
+    });
+
     describe('#getSqlSelectStateId()', function() {
         it('should return correct SQL subquery', async function() {
-            const sql = `(SELECT "id" FROM "rsj_payment_state" WHERE "label" = 'Prévu')`
+            const sql = `(SELECT "id" FROM "rsj_payment_state" WHERE "label" = 'Prévu')`;
             expect(await getSqlSelectStateId('Prévu')).to.equal(sql);
         });
     });
 
     describe('#getSqlSelectRemainingPayment()', function() {
         it('should return correct SQL subquery', async function() {
-            const sql = `(SELECT "beneficiaryRsjId", COUNT(*) AS "count" FROM "rsj_payment" GROUP BY "beneficiaryRsjId")`
+            const sql = `(SELECT "beneficiaryRsjId", COUNT(*) AS "count" FROM "rsj_payment" GROUP BY "beneficiaryRsjId")`;
             expect(await getSqlSelectRemainingPayment('Prévu')).to.equal(sql);
         });
     });
@@ -71,18 +85,23 @@ describe('payments.js', function() {
         });
     });
 
+    describe('#extractPaymentData()', function() {
+        it('should return extracted data', async function() {
+            const data = {
+                fields: { montant_verse: 400 },
+                receipt_time: '2022-07-17T00:00:00.000Z',
+                last_update_time: '2022-07-18T00:00:00.000Z'
+            }
+            expect(extractPaymentData(data)).to.deep.equal({ amount: 400, month: '2022-07-17', createdAt: '2022-07-18' });
+        });
+    });
+
     describe('#insert()', function() {
         let row;
         let paymentId;
 
         beforeEach(async function() {
-            let data = {
-                last_update_time: '2022-07-18T00:00:00.000Z',
-                fields: { montant_verse: 400 },
-                receipt_time: '2022-07-17T00:00:00.000Z'
-            };
-
-            paymentId = await insert(2, 1, 1, data);
+            paymentId = await insert(2, 1, 1, 400, '2022-07-17', '2022-07-18');
 
             const sql = sqlBuilder.getSelect({
                 _select: [ '"stateDate"', '"stateId"', '"amount"', '"paymentMonth"', '"beneficiaryRsjId"' ],

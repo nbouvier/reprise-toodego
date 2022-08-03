@@ -199,23 +199,23 @@ export const WORKFLOW_STATUS = {
     "accepted": "Acceptée", // Droit de tirage ok
     "finished": "Versement en cours", // Demande traitée (paiement actif)
     "1": "Suspendue", // Suspendu / Interrompu
-    "2": "Analyse en cours", // Dossier complet
-    "3": "Analyse en cours", // Réactiver
+    // "2": "Analyse en cours", // Dossier complet
+    "3": "En création", // Réactiver
     "4": "Suspendue", // Demande interrompue depuis plus de 3 mois
-    "5": "Versement en cours", // Ajout d'un mois payé dans la fiche
+    // "5": "Versement en cours", // Ajout d'un mois payé dans la fiche
     "6": "Terminée", // Droit de tirage ko
     "7": "Refusée", // Refus pour ineligibilité
     "8": "Refusée", // Refus pour non-respect des engagements
     "9": "Demande de suspension", // Demande de suspension
-    "10": "Demande de suspension en instruction", // Demande de suspension en instruction
+    // "10": "Demande de suspension", // Demande de suspension en instruction
     "11": "Erreur de paiement", // Demande en erreur de paiement
-    "12": "Versement en cours", // Vérification des nouveaux documents bancaires
-    "13": "Versement en cours", // Nouveaux documents bancaires validés
+    // "12": "Versement en cours", // Vérification des nouveaux documents bancaires
+    // "13": "Versement en cours", // Nouveaux documents bancaires validés
     "14": "Terminée", // Sortie du dispositif
     "15": "Suspendue", // Réintégration du jeune
     "16": "Suspendue" // Abandon de la demande
 
-    // TODO: /!\ A vérifier pour 14, 15, 16, (13 ?), 3, 5
+    // TODO: /!\ Check for 14, 15, 16
 }
 
 const mapping = { TYPE_JUSTIFICATIF_IDENTITE, TYPE_JUSTIFICATIF_DOMICILIATION, WORKFLOW_STATUS };

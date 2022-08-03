@@ -6,9 +6,23 @@ import { expect } from 'chai';
 import db from '../../src/database/database.js';
 import sqlBuilder from '../../src/utils/sqlBuilder.js';
 
-import beneficiaries, { insertBeneficiaryRsj } from '../../src/beneficiaries.js';
+import beneficiaries, { getSqlSelectLastInstructionsId, insertBeneficiaryRsj } from '../../src/beneficiaries.js';
 
 describe('beneficiaries.js', function() {
+
+    describe('#getSqlSelectLastInstructionsId()', function() {
+        it('should return correct SQL subquery', async function() {
+            const sql = `(SELECT DISTINCT ON ("beneficiaryId") "beneficiaryId", "id" AS "instructionRsjId" FROM "instruction_rsj" ORDER BY "beneficiaryId", "instructionDate" DESC, "id" DESC)`;
+            expect(await getSqlSelectLastInstructionsId()).to.equal(sql);
+        });
+    });
+
+    describe('#getSqlSelectLastAcceptedInstructionsId()', function() {
+        it('should return correct SQL subquery', async function() {
+            const sql = `(SELECT t."instructionRsjId" FROM "traceability" t JOIN (SELECT DISTINCT ON ("beneficiaryId") "beneficiaryId", "id" AS "instructionRsjId" FROM "instruction_rsj" ORDER BY "beneficiaryId", "instructionDate" DESC, "id" DESC) a ON a."instructionRsjId" = t."instructionRsjId" WHERE t."status" = 'Acceptée')`;
+            expect(await beneficiaries.getSqlSelectLastAcceptedInstructionsId()).to.equal(sql);
+        });
+    });
 
     describe('#getId()', function() {
         it('should return beneficiary.id', async function() {

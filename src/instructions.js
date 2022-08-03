@@ -52,6 +52,16 @@ export async function importInstructions() {
     }
 }
 
+export function getSqlSelectSuspendedInstructionsId() {
+    return sqlBuilder.getSelect({
+        _select: [ 't."instructionRsjId"' ],
+        _from: [ '"traceability" t' ],
+        _join: [ { _table: states.getSqlSelectInstructionsLastState(), _as: 'a', _on: [ 'a."traceabilityId" = t."id"' ] } ],
+        _where: [ `t."status" = 'Suspendue'` ],
+        _subquery: true
+    });
+}
+
 export async function getAllIds(_beneficiaryId) {
     const sql = sqlBuilder.getSelect({
         _select: [ '"id"' ],
@@ -103,7 +113,7 @@ export async function updateAfterDwellingDocuments(_instructionIds, _documents) 
 export async function updatePaymentDecision(_instructionId, _amount, _months, _comment) {
     const sql = sqlBuilder.getUpdate({
         _update: '"instruction_rsj"',
-        _set: [ `"paymentAmount" = ${_amount}`, `"paymentDuration" = ${_months}`, `"paymentOpinion" = ${sqlBuilder.parseString(_comment)}` ],
+        _set: [ `"paymentAmount" = ${_amount}`, `"paymentDuration" = '${_months} mois'`, `"paymentOpinion" = ${sqlBuilder.parseString(_comment)}`, `"paymentCounterProposal" = false` ],
         _where: [ `"id" = ${_instructionId}` ]
     });
 
@@ -111,11 +121,9 @@ export async function updatePaymentDecision(_instructionId, _amount, _months, _c
 }
 
 export async function updatePaymentCounterDecision(_instructionId, _amount, _months, _comment) {
-    const counterProposal = _amount && _months ? true : null;
-
     const sql = sqlBuilder.getUpdate({
         _update: '"instruction_rsj"',
-        _set: [ `"paymentCounterProposal" = ${counterProposal}`, `"paymentCounterAmount"  = ${_amount}`, `"paymentCounterDuration" = ${_months}`, `"paymentCounterComment"  = ${sqlBuilder.parseString(_comment)}` ],
+        _set: [ `"paymentCounterProposal" = true`, `"paymentCounterAmount"  = ${_amount}`, `"paymentCounterDuration" = '${_months} mois'`, `"paymentCounterComment"  = ${sqlBuilder.parseString(_comment)}` ],
         _where: [ `"id" = ${_instructionId}` ]
     });
 
@@ -123,7 +131,7 @@ export async function updatePaymentCounterDecision(_instructionId, _amount, _mon
 }
 
 export async function updateStates() {
-    const lastStatesQuery = states.getSqlSelectLastStates();
+    const lastStatesQuery = states.getSqlSelectInstructionsLastState();
 
     const sql = sqlBuilder.getUpdate({
         _update: '"instruction_rsj"',
@@ -146,6 +154,6 @@ export async function insertOtherDocument(_documentId, _comment, _instructionId)
     await db.query(sql);
 }
 
-const instructions = { importInstructions, getAllIds, getClosestInstructionId, updateAfterNationalityDocuments, updateAfterDwellingDocuments, updatePaymentDecision, updatePaymentCounterDecision, updateStates, insertOtherDocument };
+const instructions = { importInstructions, getSqlSelectSuspendedInstructionsId, getAllIds, getClosestInstructionId, updateAfterNationalityDocuments, updateAfterDwellingDocuments, updatePaymentDecision, updatePaymentCounterDecision, updateStates, insertOtherDocument };
 
 export default instructions;

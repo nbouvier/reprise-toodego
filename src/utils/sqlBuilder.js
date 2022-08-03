@@ -1,6 +1,20 @@
-export function getSelect({ _select = [ '*' ], _from, _where, _groupBy, _orderBy, _limit, _subquery }) {
+export function getCase({ _cases, _as }) {
+    const cases = `CASE ${_cases.map(c => `WHEN ${c._when} THEN ${c._then}`).join(' ')} END`
+    const as = _as ? ` AS ${_as}` : '';
+
+    return `${cases}${as}`;
+}
+
+function getJoin(_linker, _joins) {
+    return _joins.map(j => `${_linker} ${j._table}${j._as ? ` ${j._as}` : ''} ON ${j._on.join(' AND ')}`).join(' ');
+}
+
+export function getSelect({ _select = [ '*' ], _from, _join, _leftJoin, _rightJoin, _where, _groupBy, _orderBy, _limit, _subquery }) {
     const select = `SELECT ${_select.join(', ')}`;
     const from = _from ? ` FROM ${_from.join(', ')}` : '';
+    const join = _join ? ` ${getJoin('JOIN', _join)}` : '';
+    const leftJoin = _leftJoin ? ` ${getJoin('LEFT JOIN', _leftJoin)}` : '';
+    const rightJoin = _rightJoin ? ` ${getJoin('RIGHT JOIN', _rightJoin)}` : '';
     const where = _where ? ` WHERE ${_where.join(' AND ')}` : '';
     const groupBy = _groupBy ? ` GROUP BY ${_groupBy.join(', ')}` : '';
     const orderBy = _orderBy ? ` ORDER BY ${_orderBy.join(', ')}` : '';
@@ -8,7 +22,7 @@ export function getSelect({ _select = [ '*' ], _from, _where, _groupBy, _orderBy
     const queryStart = _subquery ? '(' : '';
     const queryEnd = _subquery ? ')' : ';';
 
-    return `${queryStart}${select}${from}${where}${groupBy}${orderBy}${limit}${queryEnd}`;
+    return `${queryStart}${select}${from}${join}${leftJoin}${rightJoin}${where}${groupBy}${orderBy}${limit}${queryEnd}`;
 }
 
 export function getUpdate({ _update, _set, _from, _where }) {
@@ -58,6 +72,6 @@ export function parseString(_string) {
     return `'${filteredString}'`;
 }
 
-const sqlBuilder = { getSelect, getUpdate, getInsert, getDelete, parseString };
+const sqlBuilder = { getCase, getSelect, getUpdate, getInsert, getDelete, parseString };
 
 export default sqlBuilder;

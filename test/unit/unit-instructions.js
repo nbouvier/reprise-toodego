@@ -15,6 +15,13 @@ describe('instructions.js', function() {
 
     // TODO: Test import functions
 
+    describe('#getSqlSelectSuspendedInstructionsId()', function() {
+        it('should return correct SQL subquery', async function() {
+            const sql = `(SELECT t."instructionRsjId" FROM "traceability" t JOIN (SELECT DISTINCT ON ("instructionRsjId") "instructionRsjId", "statusDate", "status", "id" AS "traceabilityId" FROM "traceability" ORDER BY "instructionRsjId", "statusDate" DESC, "id" DESC) a ON a."traceabilityId" = t."id" WHERE t."status" = 'Suspendue')`;
+            expect(await instructions.getSqlSelectSuspendedInstructionsId()).to.equal(sql);
+        });
+    });
+
     describe('#getAllIds()', function() {
         it('should return all the instruction_rsj.id', async function() {
             expect(await instructions.getAllIds(1)).to.deep.equalInAnyOrder([ 1, 2 ]);
@@ -121,7 +128,7 @@ describe('instructions.js', function() {
             await instructions.updatePaymentDecision(1, 400, 3, 'test');
 
             const sql = sqlBuilder.getSelect({
-                _select: [ '"paymentAmount"', '"paymentDuration"::integer', '"paymentOpinion"' ],
+                _select: [ '"paymentAmount"', '"paymentDuration"', '"paymentOpinion"', '"paymentCounterProposal"' ],
                 _from: [ '"instruction_rsj"' ],
                 _where: [ '"id" = 1' ]
             });
@@ -130,8 +137,9 @@ describe('instructions.js', function() {
         });
 
         it('should update instruction_rsj properties', async function() {
+            expect(row.paymentCounterProposal).to.be.false;
             expect(row.paymentAmount).to.equal(400);
-            expect(row.paymentDuration).to.equal(3);
+            expect(row.paymentDuration).to.equal('3 mois');
             expect(row.paymentOpinion).to.equal('test');
         });
 
@@ -147,7 +155,7 @@ describe('instructions.js', function() {
             await instructions.updatePaymentCounterDecision(1, 400, 3, 'test');
 
             const sql = sqlBuilder.getSelect({
-                _select: [ '"paymentCounterProposal"', '"paymentCounterAmount"', '"paymentCounterDuration"::integer', '"paymentCounterComment"' ],
+                _select: [ '"paymentCounterProposal"', '"paymentCounterAmount"', '"paymentCounterDuration"', '"paymentCounterComment"' ],
                 _from: [ '"instruction_rsj"' ],
                 _where: [ '"id" = 1' ]
             });
@@ -158,7 +166,7 @@ describe('instructions.js', function() {
         it('should update instruction_rsj properties', async function() {
             expect(row.paymentCounterProposal).to.be.true;
             expect(row.paymentCounterAmount).to.equal(400);
-            expect(row.paymentCounterDuration).to.equal(3);
+            expect(row.paymentCounterDuration).to.equal('3 mois');
             expect(row.paymentCounterComment).to.equal('test');
         });
 

@@ -14,7 +14,7 @@ import { importPayments } from './src/payments.js';
 
 fs.writeFileSync(process.env.LOG_FILE, '');
 
-console.log(fetcher.getFormUrl(process.env.TOODEGO_INSTRUCTION_PATH, 425));
+// console.log(fetcher.getFormUrl(process.env.TOODEGO_INSTRUCTION_PATH, 2150));
 
 // await importInstructions();
 // await importPayments();
