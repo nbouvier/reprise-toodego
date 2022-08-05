@@ -7,13 +7,14 @@ import instructions from './instructions.js';
 import documents from './documents.js';
 import { WORKFLOW_STATUS } from './mappings.js';
 
-const AVOID_DUPLICATES = [ 'Versement en cours' ];
 const PAYMENT_DECISION = [ 'new', 'accepted' ];
 
 // Eventually update payment decision
 // Eventually import document
 // Import state
 async function importStates(_beneficiaryId, _data) {
+    let rsjFolderState = 'Non orienté';
+
     logger.log('Importing states ...');
     for (let i=0; i<_data.evolution.length; i++) {
         const stateData = _data.evolution[i];
@@ -33,7 +34,7 @@ async function importStates(_beneficiaryId, _data) {
             continue;
         }
 
-        if (AVOID_DUPLICATES.includes(state) && state == await getLastState(instructionId)) {
+        if (state == await getLastState(instructionId)) {
             logger.log(`Skipping state ${stateData.status} ...`);
             continue;
         }
@@ -73,6 +74,65 @@ async function importStates(_beneficiaryId, _data) {
 
                 default: logger.log(`Error - Unhandled part type ${part.type}`);
             }
+
+            switch (state) {
+                case 'Analyse en cours':
+                    if (rsjFolderState == 'Non orienté') {
+                        beneficiaries.updateStateId(_beneficiaryId, 'En analyse');
+                        rsjFolderState = 'En analyse';
+                    }
+                    break;
+
+                case 'Refusée':
+                    if (rsjFolderState == 'En analyse') {
+                        beneficiaries.updateStateId(_beneficiaryId, 'Refusé');
+                        rsjFolderState = 'Refusé';
+                    }
+                    break;
+
+                case 'Acceptée':
+                    if (rsjFolderState == 'En analyse'){
+                        beneficiaries.openAllowance(_beneficiaryId, stateDate);
+                        rsjFolderState = 'Droit ouvert (en attente de versement)';
+                    }
+                    break;
+
+                case 'Versement en cours':
+                    if (rsjFolderState == 'Droit ouvert (en attente de versement)') {
+                        beneficiaries.updateStateId(_beneficiaryId, 'Droit ouvert (avec versement)');
+                        rsjFolderState = 'Droit ouvert (avec versement)';
+                    }
+                    break;
+
+                case 'Suspendue':
+                    if (rsjFolderState == 'Droit ouvert (avec versement)') {
+                        beneficiaries.updateStateId(_beneficiaryId, 'Droit ouvert (sans versement)');
+                        rsjFolderState = 'Droit ouvert (sans versement)';
+                    }
+                    break;
+
+                case 'Terminée':
+                    if (rsjFolderState == 'Droit ouvert (avec versement)') {
+                        beneficiaries.updateStateId(_beneficiaryId, 'Droit ouvert (sans versement)');
+                        rsjFolderState = 'Droit ouvert (sans versement)';
+                    }
+                    break;
+            }
+        }
+
+        switch (stateData.status) {
+            case 'Demande transmise':
+                await insert(instructionId, 'En création', stateDate, '');
+                break;
+
+            case 'Réactiver':
+                const previousInstructionId = instructions.getPreviousInstructionId(_beneficiaryId, instructionId);
+                if (!previousInstructionId) {
+                    logger.error(`Instruction not found for beneficiary #${beneficiaryId} before instruction #${instructionId}.`);
+                    continue;
+                }
+                await insert(previousInstructionId, 'Terminée', stateDate, '');
+                break;
         }
 
         await insert(instructionId, state, stateDate, comment);
@@ -85,20 +145,11 @@ export function getSqlSelectInstructionsLastState() {
     return sqlBuilder.getSelect({
         _select: [ 'DISTINCT ON ("instructionRsjId") "instructionRsjId"' , '"statusDate"', '"status"', '"id" AS "traceabilityId"' ],
         _from: [ '"traceability"' ],
+        _where: [ '"instructionRsjId" IS NOT null' ],
         _orderBy: [ '"instructionRsjId"', '"statusDate" DESC', '"id" DESC' ],
         _subquery: true
     });
 }
-
-// export function getSqlSelectInstructionsLastState() {
-//     return sqlBuilder.getSelect({
-//         _select: [ '"instructionRsjId"', 'MAX("id") AS "traceabilityId"' ],
-//         _from: [ '"traceability"' ],
-//         _where: [ '"instructionRsjId" IS NOT null' ],
-//         _groupBy: [ '"instructionRsjId"' ],
-//         _subquery: true
-//     });
-// }
 
 export async function getLastState(_instructionId) {
     const sql = sqlBuilder.getSelect({

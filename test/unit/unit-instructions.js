@@ -15,9 +15,23 @@ describe('instructions.js', function() {
 
     // TODO: Test import functions
 
+    describe('#getSqlSelectInstructionPayments()', function() {
+        it('should return correct SQL subquery', async function() {
+            const sql = `(SELECT "instructionRsjId", COUNT(*) AS "numberOfPayments" FROM "rsj_payment" GROUP BY "instructionRsjId")`;
+            expect(await instructions.getSqlSelectInstructionPayments()).to.equal(sql);
+        });
+    });
+
+    describe('#getSqlSelectInstructionExpectedPayments()', function() {
+        it('should return correct SQL subquery', async function() {
+            const sql = `(SELECT "id" AS "instructionRsjId", CASE WHEN "paymentCounterProposal" = false THEN SUBSTRING("paymentDuration" FROM 1 FOR 1)::INTEGER WHEN "paymentCounterProposal" = true THEN SUBSTRING("paymentCounterDuration" FROM 1 FOR 1)::INTEGER END AS "expectedNumberOfPayments" FROM "instruction_rsj" WHERE "paymentCounterProposal" IS NOT null)`;
+            expect(await instructions.getSqlSelectInstructionExpectedPayments()).to.equal(sql);
+        });
+    });
+
     describe('#getSqlSelectSuspendedInstructionsId()', function() {
         it('should return correct SQL subquery', async function() {
-            const sql = `(SELECT t."instructionRsjId" FROM "traceability" t JOIN (SELECT DISTINCT ON ("instructionRsjId") "instructionRsjId", "statusDate", "status", "id" AS "traceabilityId" FROM "traceability" ORDER BY "instructionRsjId", "statusDate" DESC, "id" DESC) a ON a."traceabilityId" = t."id" WHERE t."status" = 'Suspendue')`;
+            const sql = `(SELECT t."instructionRsjId" FROM "traceability" t JOIN (SELECT DISTINCT ON ("instructionRsjId") "instructionRsjId", "statusDate", "status", "id" AS "traceabilityId" FROM "traceability" WHERE "instructionRsjId" IS NOT null ORDER BY "instructionRsjId", "statusDate" DESC, "id" DESC) a ON a."traceabilityId" = t."id" WHERE t."status" = 'Suspendue')`;
             expect(await instructions.getSqlSelectSuspendedInstructionsId()).to.equal(sql);
         });
     });
@@ -43,6 +57,15 @@ describe('instructions.js', function() {
         });
         it('should return undefined if no instruction_rsj matches', async function() {
             expect(await instructions.getClosestInstructionId(1, '2021-12-30')).to.be.undefined;
+        });
+    });
+
+    describe('#getPreviousInstructionId()', function() {
+        it('should return the previous instruction_rsj.id', async function() {
+            expect(await instructions.getPreviousInstructionId(1, 2)).to.equal(1);
+        });
+        it('should return undefined if no instruction_rsj matches', async function() {
+            expect(await instructions.getPreviousInstructionId(2, 3)).to.be.undefined;
         });
     });
 

@@ -92,6 +92,38 @@ export async function updateNextPaymentId(_beneficiaryId, _nextPaymentId) {
     await db.query(sql);
 }
 
+export async function updateState(_beneficiaryId, _state) {
+    const sql = sqlBuilder.getUpdate({
+        _update: [ '"beneficiary_rsj" b_rsj' ],
+        _set: [ `"stateId" = rs."id"` ],
+        _from: [ '"rsj_state" rs' ],
+        _where: [ `b_rsj."beneficiaryId" = ${_beneficiaryId}`, `rs."label" = '${_state}'` ]
+    });
+    
+    await db.query(sql);
+}
+
+export async function openAllowance(_beneficiaryId, _date) {
+    const sql = sqlBuilder.getUpdate({
+        _update: [ '"beneficiary_rsj"' ],
+        _set: [ `"stateId" = 2`, `"rsjBeginDate" = '${_date}'` ],
+        _where: [ `"beneficiaryId" = ${_beneficiaryId}` ]
+    });
+
+    await db.query(sql);
+}
+
+export async function closeAllowancesForAge() {
+    const sql = sqlBuilder.getUpdate({
+        _update: [ '"beneficiary_rsj" b_rsj' ],
+        _set: [ `"stateId" = 5`, `"rsjEndDate" = INTERVAL '25 YEARS' + b."birthDate"`, '"reasonId" = 2' ],
+        _from: [ '"beneficiary" b' ],
+        _where: [ 'b."id" = b_rsj."beneficiaryId"', `AGE(CURRENT_DATE, b."birthDate") >= INTERVAL '25 YEARS'` ]
+    });
+
+    await db.query(sql);
+}
+
 export async function insertBeneficiaryRsj(_beneficiaryId) {
     const sql = sqlBuilder.getInsert({
         _insert: [ '"stateId"', '"beneficiaryId"' ],
@@ -103,6 +135,6 @@ export async function insertBeneficiaryRsj(_beneficiaryId) {
     return res[1].rows[0].id;
 }
 
-const beneficiaries = { getSqlSelectLastAcceptedInstructionsId, getId, getRsjId, getRibId, updateResidentialStatus, updateRibId, updateNextPaymentId };
+const beneficiaries = { getSqlSelectLastAcceptedInstructionsId, getId, getRsjId, getRibId, updateResidentialStatus, updateRibId, updateNextPaymentId, updateState, openAllowance, closeAllowancesForAge };
 
 export default beneficiaries;

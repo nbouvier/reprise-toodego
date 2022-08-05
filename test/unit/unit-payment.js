@@ -7,25 +7,11 @@ import db from '../../src/database/database.js';
 import sqlBuilder from '../../src/utils/sqlBuilder.js';
 
 import beneficiaries from '../../src/beneficiaries.js';
-import payments, { getSqlSelectInstructionPayments, getSqlSelectInstructionExpectedPayments, getSqlSelectStateId, getSqlSelectRemainingPayment, updateRemainingPayments, extractPaymentData, insert, insertNextPayment } from '../../src/payments.js';
+import payments, { getSqlSelectStateId, getSqlSelectRemainingPayment, updateNextPayments, extractPaymentData, insert, insertNextPayment } from '../../src/payments.js';
 
 describe('payments.js', function() {
 
     // TODO: Test import functions
-
-    describe('#getSqlSelectInstructionPayments()', function() {
-        it('should return correct SQL subquery', async function() {
-            const sql = `(SELECT "instructionRsjId", COUNT(*) AS "numberOfPayments" FROM "rsj_payment" GROUP BY "instructionRsjId")`;
-            expect(await getSqlSelectInstructionPayments()).to.equal(sql);
-        });
-    });
-
-    describe('#getSqlSelectInstructionExpectedPayments()', function() {
-        it('should return correct SQL subquery', async function() {
-            const sql = `(SELECT "id" AS "instructionRsjId", CASE WHEN "paymentCounterProposal" = false THEN SUBSTRING("paymentDuration" FROM 1 FOR 1)::INTEGER WHEN "paymentCounterProposal" = true THEN SUBSTRING("paymentCounterDuration" FROM 1 FOR 1)::INTEGER END AS "expectedNumberOfPayments" FROM "instruction_rsj")`;
-            expect(await getSqlSelectInstructionExpectedPayments()).to.equal(sql);
-        });
-    });
 
     describe('#getSqlSelectStateId()', function() {
         it('should return correct SQL subquery', async function() {
@@ -36,12 +22,12 @@ describe('payments.js', function() {
 
     describe('#getSqlSelectRemainingPayment()', function() {
         it('should return correct SQL subquery', async function() {
-            const sql = `(SELECT "beneficiaryRsjId", COUNT(*) AS "count" FROM "rsj_payment" GROUP BY "beneficiaryRsjId")`;
+            const sql = `(SELECT rp."beneficiaryRsjId", COUNT(*) AS "count", MIN(rp."paymentMonth") FILTER (WHERE rpd."label" = 'Prévu') AS "nextMonth", MIN(rp."amount") FILTER (WHERE rpd."label" = 'Prévu') AS "nextAmount" FROM "rsj_payment" rp JOIN "rsj_payment_state" rpd ON rpd."id" = rp."stateId" GROUP BY rp."beneficiaryRsjId")`;
             expect(await getSqlSelectRemainingPayment('Prévu')).to.equal(sql);
         });
     });
 
-    describe('#updateRemainingPayments()', function() {
+    describe('#updateNextPayments()', function() {
         let rows;
         let beneficiaryIds;
         let nextPaymentIds;
@@ -54,10 +40,10 @@ describe('payments.js', function() {
                 await beneficiaries.updateNextPaymentId(beneficiaryIds[i], nextPaymentIds[i]);
             }
 
-            await updateRemainingPayments();
+            await updateNextPayments();
 
             const sql = sqlBuilder.getSelect({
-                _select: [ 'brsj."id" AS "beneficiaryRsjId"', 'np."remainingPayment"' ],
+                _select: [ 'brsj."id" AS "beneficiaryRsjId"', 'np."remainingPayment"', 'np."nextPayment"', 'np."nextAmount"' ],
                 _from: [ '"rsj_next_payment" np', '"beneficiary_rsj" brsj' ],
                 _where: [ 'np."id" = brsj."nextPaymentId"', `brsj."beneficiaryId" IN (${beneficiaryIds.join(', ')})` ]
             });
@@ -65,10 +51,17 @@ describe('payments.js', function() {
             rows = res.rows;
         });
 
-        it('should update rsj_next_payment.remainingPayment', async function() {
-            let remainingPayments = { 1: 22, 2: 24, 3: 23 };
+        it('should update properties', async function() {
+            let data = {
+                1: { remainingPayments: 22, nextMonth: '01/01/2023', nextAmount: '400' },
+                2: { remainingPayments: 24, nextMonth: null, nextAmount: null },
+                3: { remainingPayments: 23, nextMonth: null, nextAmount: null }
+            };
             for(let i=0; i<beneficiaryIds.length; i++) {
-                expect(rows[i].remainingPayment).to.equal(remainingPayments[rows[i].beneficiaryRsjId]);
+                expect(rows[i].remainingPayment).to.equal(data[rows[i].beneficiaryRsjId].remainingPayments);
+                let paymentMonth = rows[i].nextPayment ? (new Date(rows[i].nextPayment)).toLocaleDateString() : null;
+                expect(paymentMonth).to.equal(data[rows[i].beneficiaryRsjId].nextMonth);
+                expect(rows[i].nextAmount).to.equal(data[rows[i].beneficiaryRsjId].nextAmount);
             }
         });
 

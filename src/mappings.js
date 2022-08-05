@@ -198,10 +198,10 @@ export const WORKFLOW_STATUS = {
     "rejected": "Refusée", // Demande refusée
     "accepted": "Acceptée", // Droit de tirage ok
     "finished": "Versement en cours", // Demande traitée (paiement actif)
-    "1": "Suspendue", // Suspendu / Interrompu
+    "1": "Terminée", // Suspendu / Interrompu
     // "2": "Analyse en cours", // Dossier complet
     "3": "En création", // Réactiver
-    "4": "Suspendue", // Demande interrompue depuis plus de 3 mois
+    // "4": "Suspendue", // Demande interrompue depuis plus de 3 mois
     // "5": "Versement en cours", // Ajout d'un mois payé dans la fiche
     "6": "Terminée", // Droit de tirage ko
     "7": "Refusée", // Refus pour ineligibilité
@@ -213,7 +213,7 @@ export const WORKFLOW_STATUS = {
     // "13": "Versement en cours", // Nouveaux documents bancaires validés
     "14": "Terminée", // Sortie du dispositif
     "15": "Suspendue", // Réintégration du jeune
-    "16": "Suspendue" // Abandon de la demande
+    // "16": "Suspendue" // Abandon de la demande
 
     // TODO: /!\ Check for 14, 15, 16
 }

@@ -58,19 +58,22 @@ describe('beneficiaries.js', function() {
     });
 
     describe('#updateResidentialStatus()', function() {
+        let row;
+
         beforeEach(async function() {
             await beneficiaries.updateResidentialStatus(1, 'Tenant');
-        });
 
-        it('should update beneficiary_address.residentialStatus', async function() {
             const sql = sqlBuilder.getSelect({
                 _select: [ '"residentialStatus"' ],
                 _from: [ '"beneficiary_address" ba', '"beneficiary" b' ],
                 _where: [ 'ba."id" = b."residentialAddressId"', 'b."id" = 1' ]
             });
             const res = await db.query(sql);
+            row = res.rows[0];
+        });
 
-            expect(res.rows[0].residentialStatus).to.equal('Tenant');
+        it('should update beneficiary_address.residentialStatus', async function() {
+            expect(row.residentialStatus).to.equal('Tenant');
         });
 
         afterEach(async function() {
@@ -79,19 +82,22 @@ describe('beneficiaries.js', function() {
     });
 
     describe('#updateRibId()', function() {
+        let row;
+
         beforeEach(async function() {
             await beneficiaries.updateRibId(2, 1);
-        });
 
-        it('should update beneficiary_rsj.paymentDataId', async function() {
             const sql = sqlBuilder.getSelect({
                 _select: [ '"paymentDataId"' ],
                 _from: [ '"beneficiary_rsj"' ],
                 _where: [ '"beneficiaryId" = 2' ]
             });
             const res = await db.query(sql);
+            row = res.rows[0];
+        });
 
-            expect(res.rows[0].paymentDataId).to.equal(1);
+        it('should update beneficiary_rsj.paymentDataId', async function() {
+            expect(row.paymentDataId).to.equal(1);
         });
 
         afterEach(async function() {
@@ -100,19 +106,110 @@ describe('beneficiaries.js', function() {
     });
 
     describe('#updateNextPaymentId()', function() {
+        let row;
+
         beforeEach(async function() {
             await beneficiaries.updateNextPaymentId(1, 1);
-        });
 
-        it('should update beneficiary_rsj.nextPaymentId', async function() {
             const sql = sqlBuilder.getSelect({
                 _select: [ '"nextPaymentId"' ],
                 _from: [ '"beneficiary_rsj"' ],
                 _where: [ '"beneficiaryId" = 1' ]
             });
             const res = await db.query(sql);
+            row = res.rows[0];
+        });
 
-            expect(res.rows[0].nextPaymentId).to.equal(1);
+        it('should update beneficiary_rsj.nextPaymentId', async function() {
+            expect(row.nextPaymentId).to.equal(1);
+        });
+
+        afterEach(async function() {
+            await beneficiaries.updateNextPaymentId(1, null);
+        });
+    });
+
+    describe('#updateState()', function() {
+        let row;
+
+        beforeEach(async function() {
+            await beneficiaries.updateState(1, 'Refusé');
+
+            const sql = sqlBuilder.getSelect({
+                _select: [ 'rs."label"' ],
+                _from: [ '"beneficiary_rsj" b_rsj', '"rsj_state" rs' ],
+                _where: [ 'b_rsj."stateId" = rs."id"', 'b_rsj."beneficiaryId" = 1' ]
+            });
+            const res = await db.query(sql);
+            row = res.rows[0];
+        });
+
+        it('should update beneficiary_rsj.stateId', async function() {
+            expect(row.label).to.equal('Refusé');
+        });
+
+        afterEach(async function() {
+            await beneficiaries.updateState(1, 'Non orienté');
+        });
+    });
+
+    describe('#openAllowance()', function() {
+        let row;
+
+        beforeEach(async function() {
+            await beneficiaries.openAllowance(1, '2022-01-01');
+
+            const sql = sqlBuilder.getSelect({
+                _select: [ '"stateId"', '"rsjBeginDate"' ],
+                _from: [ '"beneficiary_rsj"' ],
+                _where: [ '"beneficiaryId" = 1' ]
+            });
+            const res = await db.query(sql);
+            row = res.rows[0];
+        });
+
+        it('should update beneficiary_rsj properties', async function() {
+            expect(row.stateId).to.equal(2);
+            const rsjBeginDate = new Date(row.rsjBeginDate).toLocaleDateString();
+            expect(rsjBeginDate).to.equal('01/01/2022');
+        });
+
+        afterEach(async function() {
+            const sql = sqlBuilder.getUpdate({
+                _update: [ '"beneficiary_rsj"' ],
+                _set: [ `"stateId" = 7`, `"rsjBeginDate" = null` ],
+                _where: [ `"beneficiaryId" = 1` ]
+            });
+            await db.query(sql);
+        });
+    });
+
+    describe('#closeAllowancesForAge()', function() {
+        let rows;
+
+        beforeEach(async function() {
+            await beneficiaries.closeAllowancesForAge();
+
+            const sql = sqlBuilder.getSelect({
+                _select: [ '"beneficiaryId"', '"stateId"', '"rsjEndDate"' ],
+                _from: [ '"beneficiary_rsj"' ],
+                _where: [ '"beneficiaryId" IN (1, 2)' ]
+            });
+            const res = await db.query(sql);
+            rows = res.rows;
+        });
+
+        it('should update beneficiary_rsj properties', async function() {
+            const data = {
+                1: { stateId: 5, rsjEndDate: '01/01/2015' },
+                2: { stateId: 7, rsjEndDate: null }
+            }
+
+            for (let i=0; i<rows.length; i++) {
+                expect(rows[i].stateId).to.equal(data[rows[i].beneficiaryId].stateId);
+                const rsjEndDate = rows[i].rsjEndDate ? new Date(rows[i].rsjEndDate).toLocaleDateString() : null;
+                expect(rsjEndDate).to.equal(data[rows[i].beneficiaryId].rsjEndDate);
+            }
         });
 
         afterEach(async function() {

@@ -1,3 +1,5 @@
+import fs from 'fs';
+
 import db from './database/database.js';
 
 import api from './utils/api.js';
@@ -24,6 +26,7 @@ export async function importInstructions() {
     for (let i=0; i<instrutions.length; i++) {
         logger.log(`Fetching instruction #${instrutions[i].id} ...`);
         const instruction = await api.fetchOne(process.env.TOODEGO_INSTRUCTION_PATH, instrutions[i].id);
+        fs.appendFileSync(process.env.INSTRUCTION_DATA_FILE, payment.toString());
         const insertisId = instruction.fields.identifiant_insertis;
 
         // Test only
@@ -50,6 +53,36 @@ export async function importInstructions() {
 
         await states.importStates(beneficiaryId, instruction);
     }
+
+    logger.log('Updating rsj folder status ...');
+    beneficiaries.closeAllowancesForAge()
+}
+
+export function getSqlSelectInstructionPayments() {
+    return sqlBuilder.getSelect({
+        _select: [ '"instructionRsjId"', 'COUNT(*) AS "numberOfPayments"' ],
+        _from: [ '"rsj_payment"' ],
+        _groupBy: [ '"instructionRsjId"' ],
+        _subquery: true
+    });
+}
+
+export function getSqlSelectInstructionExpectedPayments() {
+    return sqlBuilder.getSelect({
+        _select: [
+            '"id" AS "instructionRsjId"',
+            sqlBuilder.getCase({
+                _cases: [
+                    { _when: '"paymentCounterProposal" = false', _then: 'SUBSTRING("paymentDuration" FROM 1 FOR 1)::INTEGER' },
+                    { _when: '"paymentCounterProposal" = true', _then: 'SUBSTRING("paymentCounterDuration" FROM 1 FOR 1)::INTEGER' }
+                ],
+                _as: '"expectedNumberOfPayments"'
+            })
+        ],
+        _from: [ '"instruction_rsj"' ],
+        _where: [ '"paymentCounterProposal" IS NOT null' ],
+        _subquery: true
+    });
 }
 
 export function getSqlSelectSuspendedInstructionsId() {
@@ -79,6 +112,19 @@ export async function getClosestInstructionId(_beneficiaryId, _date) {
         _from: [ '"instruction_rsj"' ],
         _where: [ `"beneficiaryId" = ${_beneficiaryId}`, `"instructionDate" <= '${_date}'` ],
         _orderBy: [ `'${_date}' - "instructionDate"` ],
+        _limit: 1
+    });
+
+    const res = await db.query(sql);
+    return res.rows[0]?.id;
+}
+
+export async function getPreviousInstructionId(_beneficiaryId, _instructionId) {
+    const sql = sqlBuilder.getSelect({
+        _select: [ 'i1."id"' ],
+        _from: [ '"instruction_rsj" i1', '"instruction_rsj" i2' ],
+        _where: [ `i1."beneficiaryId" = ${_beneficiaryId}`, `i1."instructionDate" < i2."instructionDate"`, `i2."id" = ${_instructionId}` ],
+        _orderBy: [ `i1. "instructionDate" DESC` ],
         _limit: 1
     });
 
@@ -154,6 +200,6 @@ export async function insertOtherDocument(_documentId, _comment, _instructionId)
     await db.query(sql);
 }
 
-const instructions = { importInstructions, getSqlSelectSuspendedInstructionsId, getAllIds, getClosestInstructionId, updateAfterNationalityDocuments, updateAfterDwellingDocuments, updatePaymentDecision, updatePaymentCounterDecision, updateStates, insertOtherDocument };
+const instructions = { importInstructions, getSqlSelectInstructionPayments, getSqlSelectInstructionExpectedPayments, getSqlSelectSuspendedInstructionsId, getAllIds, getClosestInstructionId, getPreviousInstructionId, updateAfterNationalityDocuments, updateAfterDwellingDocuments, updatePaymentDecision, updatePaymentCounterDecision, updateStates, insertOtherDocument };
 
 export default instructions;

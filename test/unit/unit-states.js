@@ -14,7 +14,7 @@ describe('states.js', function() {
 
     describe('#getSqlSelectInstructionsLastState()', function() {
         it('should return correct SQL subquery', async function() {
-            const sql = '(SELECT DISTINCT ON ("instructionRsjId") "instructionRsjId", "statusDate", "status", "id" AS "traceabilityId" FROM "traceability" ORDER BY "instructionRsjId", "statusDate" DESC, "id" DESC)';
+            const sql = '(SELECT DISTINCT ON ("instructionRsjId") "instructionRsjId", "statusDate", "status", "id" AS "traceabilityId" FROM "traceability" WHERE "instructionRsjId" IS NOT null ORDER BY "instructionRsjId", "statusDate" DESC, "id" DESC)';
             expect(states.getSqlSelectInstructionsLastState()).to.equal(sql);
         });
     });

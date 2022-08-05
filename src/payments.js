@@ -1,3 +1,5 @@
+import fs from 'fs';
+
 import db from './database/database.js';
 
 import api from './utils/api.js';
@@ -19,6 +21,7 @@ export async function importPayments() {
     for (let i=0; i<payments.data.length; i++) {
         logger.log(`Fetching payment #${payments.data[i].id} ...`);
         const payment = await api.fetchOne(process.env.TOODEGO_PAYMENT_PATH, payments.data[i].id);
+        fs.appendFileSync(process.env.PAYMENT_DATA_FILE, payment.toString());
         const insertisId = instruction.fields.identifiant_insertis;
 
         // Test only
@@ -63,7 +66,7 @@ export async function importPayments() {
     await importNextPaymentData();
 
     logger.log('Updating next payments ...');
-    await updateRemainingPayments();
+    await updateNextPayments();
 }
 
 // Create next payment row
@@ -76,14 +79,14 @@ export async function importNextPayment(_beneficiaryId, _data) {
     await beneficiaries.updateNextPaymentId(_beneficiaryId, nextPaymentId);
 }
 
-// Update next payment data
+// For each beneficiary
+// I take the last accepted instruction (if not suspended)
+// And I count linked payments
+// To get those with linked payments < imported payments
+// Create missing payments
 export async function importNextPaymentData() {
     logger.log('Creating planned payments ...');
 
-    // For each beneficiary
-    // I take the last accepted instruction (if not suspended)
-    // And I count linked payments
-    // To get those with linked payments < imported payments
     const sql = sqlBuilder.getSelect({
         _select: [
             'i."id" AS "instructionId"',
@@ -108,8 +111,8 @@ export async function importNextPaymentData() {
         _from: [ '"instruction_rsj" i' ],
         _join: [ { _table: '"beneficiary_rsj" b_rsj', _on: [ 'b_rsj."beneficiaryId" = i."beneficiaryId"' ] } ],
         _leftJoin: [
-            { _table: getSqlSelectInstructionPayments(), _as: 'a', _on: [ 'a."instructionRsjId" = i."id"' ] },
-            { _table: getSqlSelectInstructionExpectedPayments(), _as: 'b', _on: [ 'b."instructionRsjId" = i."id"' ] },
+            { _table: instructions.getSqlSelectInstructionPayments(), _as: 'a', _on: [ 'a."instructionRsjId" = i."id"' ] },
+            { _table: instructions.getSqlSelectInstructionExpectedPayments(), _as: 'b', _on: [ 'b."instructionRsjId" = i."id"' ] },
         ],
         _where: [
             'i."paymentCounterProposal" IS NOT null',
@@ -134,32 +137,6 @@ export async function importNextPaymentData() {
     }
 }
 
-export function getSqlSelectInstructionPayments() {
-    return sqlBuilder.getSelect({
-        _select: [ '"instructionRsjId"', 'COUNT(*) AS "numberOfPayments"' ],
-        _from: [ '"rsj_payment"' ],
-        _groupBy: [ '"instructionRsjId"' ],
-        _subquery: true
-    });
-}
-
-export function getSqlSelectInstructionExpectedPayments() {
-    return sqlBuilder.getSelect({
-        _select: [
-            '"id" AS "instructionRsjId"',
-            sqlBuilder.getCase({
-                _cases: [
-                    { _when: '"paymentCounterProposal" = false', _then: 'SUBSTRING("paymentDuration" FROM 1 FOR 1)::INTEGER' },
-                    { _when: '"paymentCounterProposal" = true', _then: 'SUBSTRING("paymentCounterDuration" FROM 1 FOR 1)::INTEGER' }
-                ],
-                _as: '"expectedNumberOfPayments"'
-            })
-        ],
-        _from: [ '"instruction_rsj"' ],
-        _subquery: true
-    });
-}
-
 export function getSqlSelectStateId(_state) {
     return sqlBuilder.getSelect({
         _select: [ '"id"' ],
@@ -171,17 +148,18 @@ export function getSqlSelectStateId(_state) {
 
 export function getSqlSelectRemainingPayment() {
     return sqlBuilder.getSelect({
-        _select: [ '"beneficiaryRsjId"', 'COUNT(*) AS "count"' ],
-        _from: [ '"rsj_payment"' ],
-        _groupBy: [ '"beneficiaryRsjId"' ],
+        _select: [ 'rp."beneficiaryRsjId"', 'COUNT(*) AS "count"', `MIN(rp."paymentMonth") FILTER (WHERE rpd."label" = 'Prévu') AS "nextMonth"`, `MIN(rp."amount") FILTER (WHERE rpd."label" = 'Prévu') AS "nextAmount"` ],
+        _from: [ '"rsj_payment" rp' ],
+        _join: [ { _table: '"rsj_payment_state"', _as: 'rpd', _on: [ 'rpd."id" = rp."stateId"' ] } ],
+        _groupBy: [ 'rp."beneficiaryRsjId"' ],
         _subquery: true
     });
 }
 
-export async function updateRemainingPayments() {
+export async function updateNextPayments() {
     const sql = sqlBuilder.getUpdate({
         _update: '"rsj_next_payment" np',
-        _set: [ `"remainingPayment" = 24 - c."count"` ],
+        _set: [ `"remainingPayment" = 24 - c."count"`, '"nextPayment" = c."nextMonth"', '"nextAmount" = c."nextAmount"' ],
         _from: [ '"beneficiary_rsj" brsj', `${getSqlSelectRemainingPayment()} c` ],
         _where: [ 'brsj."id" = c."beneficiaryRsjId"', 'np."id" = brsj."nextPaymentId"' ]
     });
@@ -220,25 +198,6 @@ export async function insertNextPayment() {
     const res = await db.query(sql);
     return res[1].rows[0].id;
 }
-
-// TODO: Controls
-
-/*
-SELECT i."beneficiaryId", i.id AS "instructionId", CASE
-	WHEN i."paymentCounterProposal" = false THEN SUBSTRING(i."paymentDuration" FROM 1 FOR 1)::INTEGER
-	WHEN i."paymentCounterProposal" = true THEN SUBSTRING(i."paymentCounterDuration" FROM 1 FOR 1)::INTEGER
-END - COUNT(*) AS "missingPayments", CASE
-	WHEN i."paymentCounterProposal" = false THEN i."paymentAmount"
-	WHEN i."paymentCounterProposal" = true THEN i."paymentCounterAmount"
-END AS "paymentAmount"
-FROM instruction_rsj i
-JOIN rsj_payment p ON i.id = p."instructionRsjId"
-WHERE i."paymentCounterProposal" IS NOT null
-GROUP BY i.id
-HAVING
- 	(i."paymentCounterProposal" = false AND COUNT(*) <> SUBSTRING(i."paymentDuration" FROM 1 FOR 1)::INTEGER) OR
-	(i."paymentCounterProposal" = true AND COUNT(*) <> SUBSTRING(i."paymentCounterDuration" FROM 1 FOR 1)::INTEGER)
-*/
 
 const payments = { importPayments, importNextPayment };
 
