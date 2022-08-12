@@ -9,8 +9,9 @@ import sqlBuilder from './utils/sqlBuilder.js';
 import beneficiaries from './beneficiaries.js';
 import rib from './rib.js';
 import instructions from './instructions.js';
+import { MONTHS } from './mappings.js';
 
-const allowedInsertisIds = [ 364, 425, 427 ];
+const allowedPaymentIds = [ 292, 293, 294, 298, 299, 301, 374, 384, 387, 377, 385, 389 ];
 
 // Insert all payments
 // Update remainingPayment
@@ -18,50 +19,56 @@ export async function importPayments() {
     logger.log('Fetching all payments ...');
     const payments = await api.fetchAll(process.env.TOODEGO_PAYMENT_PATH);
 
+    fs.appendFileSync(process.env.PAYMENT_DATA_FILE, '{');
     for (let i=0; i<payments.data.length; i++) {
-        logger.log(`Fetching payment #${payments.data[i].id} ...`);
-        const payment = await api.fetchOne(process.env.TOODEGO_PAYMENT_PATH, payments.data[i].id);
-        fs.appendFileSync(process.env.PAYMENT_DATA_FILE, payment.toString());
-        const insertisId = instruction.fields.identifiant_insertis;
-
         // Test only
         if (process.env.ENV == 'dev') {
-            if (!allowedInsertisIds.includes(insertisId)) {
-                logger.warning(`Skipping payment.`);
+            if (!allowedPaymentIds.includes(payments.data[i].id)) {
+                logger.warning(`Skipping payment #${payments.data[i].id}.`);
                 continue;
             }
         }
 
+        logger.log(`Fetching payment #${payments.data[i].id} ...`);
+        const payment = await api.fetchOne(process.env.TOODEGO_PAYMENT_PATH, payments.data[i].id);
+        fs.appendFileSync(process.env.PAYMENT_DATA_FILE, `${i?',':''}"${payments.data[i].id}":${JSON.stringify(payment)}`);
+        const insertisId = payment.fields.identifiant_insertis;
+
         const beneficiaryId = await beneficiaries.getId(insertisId);
         if (!beneficiaryId) {
-            logger.error(`Beneficiary not found with id #${insertisId}.`);
+            logger.error(`Beneficiary not found with id #${insertisId}.`, 'payments.js:importPayments');
             continue;
         }
 
         const beneficiaryRsjId = await beneficiaries.getRsjId(insertisId);
         if (!beneficiaryRsjId) {
-            logger.error(`BeneficiaryRsj not found with id #${insertisId}.`);
+            logger.error(`BeneficiaryRsj not found with id #${insertisId}.`, 'payments.js:importPayments');
             continue;
         }
 
-        const paymentDate = new Date(payment.receipt_time);
-        const lastDayPreviousMonth = new Date(paymentDate.getFullYear(), paymentDate.getMonth(), 0).toLocalDateString('sv-SE');
+        let paymentDate = new Date(payment.receipt_time);
+        const lastDayPreviousMonth = new Date(paymentDate.getFullYear(), paymentDate.getMonth(), 0).toLocaleDateString('sv-SE');
+        paymentDate = paymentDate.toLocaleDateString('sv-SE');
         const instructionId = await instructions.getClosestInstructionId(beneficiaryId, lastDayPreviousMonth);
         if (!instructionId) {
-            logger.error(`Instruction not found for beneficiary #${beneficiaryId} at date ${lastDayPreviousMonth}.`);
+            logger.error(`Instruction not found for beneficiary #${beneficiaryId} at date ${lastDayPreviousMonth}.`, 'payments.js:importPayments');
             continue;
         }
 
         const ribId = await beneficiaries.getRibId(beneficiaryRsjId);
         if (!ribId) {
-            logger.error(`RIB not found for beneficiary #${beneficiaryId}.`);
+            logger.error(`RIB not found for beneficiary #${beneficiaryId}.`, 'payments.js:importPayments');
             continue;
         }
 
         const paymentData = extractPaymentData(payment);
-        await insert(beneficiaryRsjId, instructionId, ribId, paymentData.amount, paymentData.month, paymentData.createdAt);
+        const paymentId = await insert(beneficiaryRsjId, instructionId, ribId, paymentData.amount, paymentData.month, paymentData.createdAt);
+        if (!paymentId) {
+            logger.error(`Failed to import payment #${payments.data[i].id} for beneficiary ${beneficiaryId}.`, 'payments.js:importPayments');
+        }
         await rib.updateBeginDate(beneficiaryId, paymentDate);
     }
+    fs.appendFileSync(process.env.PAYMENT_DATA_FILE, '}');
 
     await importNextPaymentData();
 
@@ -74,8 +81,12 @@ export async function importPayments() {
 export async function importNextPayment(_beneficiaryId, _data) {
     logger.log('Creating next payment ...');
     const nextPaymentId = await insertNextPayment();
+    if (!nextPaymentId) {
+        logger.error(`Failed to create next payment for beneficiary ${_beneficiaryId}.`, 'payments.js:importNextPayment');
+        return;
+    }
 
-    logger.log('Updating beneficiary ...');
+    logger.log('Updating beneficiary rsj ...');
     await beneficiaries.updateNextPaymentId(_beneficiaryId, nextPaymentId);
 }
 
@@ -130,9 +141,12 @@ export async function importNextPaymentData() {
         logger.log(`Creating ${row.missingPayments} payments of ${row.paymentAmount}€ for beneficiary #${row.beneficiaryId}`);
         for (let j=0; j<parseInt(row.missingPayments); j++) {
             const state = j ? 'Prévu' : 'Réalisé';
-            const month = new Date(date.getFullYear(), date.getMonth()+j, 5).toLocaleDateString();
+            const month = new Date(date.getFullYear(), date.getMonth()+j, 5).toLocaleDateString('sv-SE');
             logger.log(`Payment of ${month} (${state})`);
-            insert(row.beneficiaryRsjId, row.instructionRsjId, row.paymentDataId, row.amount, month, date.toLocaleDateString(), state);
+            const paymentId = await insert(row.beneficiaryRsjId, row.instructionId, row.paymentDataId, row.paymentAmount, month, date.toLocaleDateString('sv-SE'), state);
+            if (!paymentId) {
+                logger.error(`Failed to create payment at month ${month} for beneficiary ${row.beneficiaryId}.`, 'payments.js:importNextPaymentData');
+            }
         }
     }
 }
@@ -168,9 +182,12 @@ export async function updateNextPayments() {
 }
 
 export function extractPaymentData(_data) {
+    const splittedMonth = _data.fields.mois_du_paiement.split('-');
+    const month = new Date(splittedMonth[1], MONTHS.indexOf(splittedMonth[0]), 5).toLocaleDateString('sv-SE');
+
     return {
         amount: _data.fields.montant_verse,
-        month: _data.receipt_time.substr(0, 10),
+        month: month,
         createdAt: _data.last_update_time.substr(0, 10)
     };
 }

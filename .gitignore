@@ -1,12 +1,10 @@
-.env
-.env.dev
-.env.test
+.env*
+!.env.sample
 
 node_modules/
 package-lock.json
 
-log.txt
-log-dev.txt
-log-test.txt
+log*.txt
+data*.json
 
 .git/

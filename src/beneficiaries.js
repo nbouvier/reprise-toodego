@@ -99,7 +99,7 @@ export async function updateState(_beneficiaryId, _state) {
         _from: [ '"rsj_state" rs' ],
         _where: [ `b_rsj."beneficiaryId" = ${_beneficiaryId}`, `rs."label" = '${_state}'` ]
     });
-    
+
     await db.query(sql);
 }
 
@@ -135,6 +135,6 @@ export async function insertBeneficiaryRsj(_beneficiaryId) {
     return res[1].rows[0].id;
 }
 
-const beneficiaries = { getSqlSelectLastAcceptedInstructionsId, getId, getRsjId, getRibId, updateResidentialStatus, updateRibId, updateNextPaymentId, updateState, openAllowance, closeAllowancesForAge };
+const beneficiaries = { importRsjFolder, getSqlSelectLastAcceptedInstructionsId, getId, getRsjId, getRibId, updateResidentialStatus, updateRibId, updateNextPaymentId, updateState, openAllowance, closeAllowancesForAge };
 
 export default beneficiaries;

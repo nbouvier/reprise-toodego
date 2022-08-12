@@ -14,7 +14,10 @@ import { importPayments } from './src/payments.js';
 
 fs.writeFileSync(process.env.LOG_FILE, '');
 
-// console.log(fetcher.getFormUrl(process.env.TOODEGO_INSTRUCTION_PATH, 2150));
+if (process.env.ENV != 'test') {
+    fs.writeFileSync(process.env.INSTRUCTION_DATA_FILE, '');
+    fs.writeFileSync(process.env.PAYMENT_DATA_FILE, '');
+}
 
-// await importInstructions();
-// await importPayments();
+await importInstructions();
+await importPayments();

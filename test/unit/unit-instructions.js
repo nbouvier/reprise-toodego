@@ -9,7 +9,7 @@ const { expect } = chai;
 import db from '../../src/database/database.js';
 import sqlBuilder from '../../src/utils/sqlBuilder.js';
 
-import instructions from '../../src/instructions.js';
+import instructions, { updateComment } from '../../src/instructions.js';
 
 describe('instructions.js', function() {
 
@@ -135,12 +135,41 @@ describe('instructions.js', function() {
         });
 
         after(async function() {
-            const sql = sqlBuilder.getUpdate({
-                _update: '"instruction_rsj"',
-                _set: [ '"addressDocument1Id" = null' ],
+            await instructions.updateAfterDwellingDocuments([ 1, 2 ], { addressDocument1Id: null });
+            // const sql = sqlBuilder.getUpdate({
+            //     _update: '"instruction_rsj"',
+            //     _set: [ '"addressDocument1Id" = null' ],
+            //     _where: [ '"id" IN (1, 2)' ]
+            // });
+            // await db.query(sql);
+        });
+    });
+
+    describe('#updateAfterTutorshipDocuments()', function() {
+        let rows;
+
+        before(async function() {
+            await instructions.updateAfterTutorshipDocuments([ 1, 2 ], true, { supervisionDocument1Id: 1, supervisionDocument2Id: 2 });
+
+            const sql = sqlBuilder.getSelect({
+                _select: [ '"underSupervision"', '"supervisionDocument1Id"', '"supervisionDocument2Id"' ],
+                _from: [ '"instruction_rsj"' ],
                 _where: [ '"id" IN (1, 2)' ]
             });
-            await db.query(sql);
+            const res = await db.query(sql);
+            rows = res.rows;
+        });
+
+        it('should update instruction_rsj properties', async function() {
+            for(let i=0; i<2; i++) {
+                expect(rows[i].underSupervision).to.be.true;
+                expect(rows[i].supervisionDocument1Id).to.equal(1);
+                expect(rows[i].supervisionDocument2Id).to.equal(2);
+            }
+        });
+
+        after(async function() {
+            await instructions.updateAfterTutorshipDocuments([ 1, 2 ], null, { supervisionDocument1Id: null, supervisionDocument2Id: null });
         });
     });
 
@@ -248,11 +277,44 @@ describe('instructions.js', function() {
         });
     });
 
+    describe('#updateComment()', function() {
+        let rows;
+
+        before(async function() {
+            const data = { workflow: { fields: { nombre_de_mois_retenu: 3, montant_retenu: 400 } } };
+            await updateComment(1, data);
+
+            const sql = sqlBuilder.getSelect({
+                _select: [ '"id"', '"useTitleComment"' ],
+                _from: [ '"instruction_rsj"' ],
+                _where: [ '"id" IN (1, 2)' ]
+            });
+            const res = await db.query(sql);
+            rows = res.rows;
+        });
+
+        it('should update latest instruction_rsj.comment', async function() {
+            expect(rows.filter(r => r.id == 2)[0].useTitleComment).to.equal('Paiements prévus sur Toodego : 3 mois, 400€.');
+        });
+        it('should not update other instruction_rsj.comment', async function() {
+            expect(rows.filter(r => r.id == 1)[0].useTitleComment).to.be.null;
+        });
+
+        after(async function() {
+            const sql = sqlBuilder.getUpdate({
+                _update: '"instruction_rsj"',
+                _set: [ `"useTitleComment" = null` ],
+                _where: [ `"id" = 2` ]
+            });
+            await db.query(sql);
+        });
+    });
+
     describe('#insertOtherDocument()', function() {
         let row;
 
         before(async function() {
-            await instructions.insertOtherDocument(1, 'no comment', 1);
+            await instructions.insertOtherDocument(1, 1, 'no comment');
 
             const sql = sqlBuilder.getSelect({
                 _select: [ '"documentId"', '"comment"' ],

@@ -81,11 +81,13 @@ describe('payments.js', function() {
     describe('#extractPaymentData()', function() {
         it('should return extracted data', async function() {
             const data = {
-                fields: { montant_verse: 400 },
-                receipt_time: '2022-07-17T00:00:00.000Z',
+                fields: {
+                    montant_verse: 400,
+                    mois_du_paiement: 'Juillet-2022'
+                },
                 last_update_time: '2022-07-18T00:00:00.000Z'
             }
-            expect(extractPaymentData(data)).to.deep.equal({ amount: 400, month: '2022-07-17', createdAt: '2022-07-18' });
+            expect(extractPaymentData(data)).to.deep.equal({ amount: 400, month: '2022-07-05', createdAt: '2022-07-18' });
         });
     });
 

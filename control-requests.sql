@@ -21,6 +21,33 @@ FROM "instruction_rsj" i
 LEFT JOIN "instruction_state" s ON s."instructionRsjId" = i."id"
 WHERE i."paymentAmount" IS null AND s."status" <> 'En création';
 
+-- Instructions avec mauvaise décision de paiement
+-- => Des instructions ont dues être supprimées, vérifier les données Toodego
+WITH "expected_payment_decision" AS (
+	SELECT
+		"id" AS "instructionRsjId",
+		SUBSTRING("useTitleComment" from '%: #"% mois#"%' for '#') AS "expectedDuration",
+		SUBSTRING("useTitleComment" from '%, #"%#"€%' for '#')::INTEGER AS "expectedAmount"
+	FROM "instruction_rsj"
+	WHERE "useTitleComment" IS NOT null
+),
+"payment_decision" AS (
+	SELECT "id" AS "instructionRsjId", CASE
+		WHEN "paymentCounterProposal" = false THEN "paymentDuration"
+		WHEN "paymentCounterProposal" = true THEN "paymentCounterDuration"
+	END AS "duration",
+	CASE
+		WHEN "paymentCounterProposal" = false THEN "paymentAmount"
+		WHEN "paymentCounterProposal" = true THEN "paymentCounterAmount"
+	END AS "amount"
+	FROM "instruction_rsj"
+	WHERE "paymentCounterProposal" IS NOT null
+)
+SELECT pd."instructionRsjId", pd."duration", pd."amount", epd."expectedDuration", epd."expectedAmount"
+FROM "payment_decision" pd
+JOIN "expected_payment_decision" epd ON epd."instructionRsjId" = pd."instructionRsjId"
+WHERE epd."expectedDuration" <> pd."duration" OR epd."expectedAmount" <> pd."amount";
+
 -- Instructions avec contre-proposition renseignée mais non prise en compte
 -- => Mettre instruction_rsj.paymentCounterProposal = true
 SELECT "beneficiaryId", "id" AS "instructionRsjId", "paymentCounterProposal", "paymentCounterAmount", "paymentCounterDuration"
@@ -127,7 +154,7 @@ WITH "beneficiary_payments" AS (
 ),
 "beneficiary_expected_status" AS (
 	SELECT br."beneficiaryId", CASE
-		--WHEN AGE(CURRENT_DATE, b."birthDate") >= INTERVAL '25 YEARS' THEN 'Clos'
+		WHEN AGE(CURRENT_DATE, b."birthDate") >= INTERVAL '25 YEARS' THEN 'Clos'
 		WHEN bp."allPayments" >= 24 THEN 'Clos'
 		WHEN bp."plannedPayments" > 0 THEN 'Droit ouvert (avec versement)'
 		WHEN bp."completedPayments" > 0 THEN 'Droit ouvert (sans versement)'

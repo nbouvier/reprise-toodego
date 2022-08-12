@@ -14,7 +14,7 @@ function connect() {
     return new Promise((resolve, reject) => {
         connection.connect(error => {
             if(error) {
-                logger.error(`database.js ${error}`);
+                logger.error(`${error}`, 'database.js:connect');
                 setTimeout(connect, RETRY_COOLDOWN);
             } else { resolve(connection); }
         });
@@ -28,7 +28,7 @@ export async function query(sql, params = []) {
         connection.query(sql, params, (err, results, fields) => {
             connection.end();
             if (err) {
-                logger.error(`database.js:query ${err}.\n${sql}`);
+                logger.error(`${err}.\n${sql}`, 'database.js:query');
                 reject(err);
             } else { resolve(results); }
         });

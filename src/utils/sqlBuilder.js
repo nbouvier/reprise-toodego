@@ -67,7 +67,9 @@ export function parseString(_string) {
                                 .replaceAll('\n', '')
                                 .replaceAll('<br>', '')
                                 .replaceAll('<div>', '')
-                                .replaceAll('</div>', '');
+                                .replaceAll('</div>', '')
+                                .replaceAll('<p>', '')
+                                .replaceAll('</p>', '');
 
     return `'${filteredString}'`;
 }

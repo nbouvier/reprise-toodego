@@ -13,9 +13,17 @@ import documents from './documents.js';
 export async function importRib(_beneficiaryId, _data) {
     logger.log(`Importing banking document ...`);
     const documentId = await documents.importBankingDocument(_beneficiaryId, _data);
+    if (!documentId) {
+        logger.error(`Failed to import banking document for beneficiary ${_beneficiaryId}.`, 'rib.js:importRib');
+        return;
+    }
 
     logger.log('Importing rib ...');
     const ribId = await insert(documentId, _data);
+    if (!documentId) {
+        logger.error(`Failed to import rib for beneficiary ${_beneficiaryId}.`, 'rib.js:importRib');
+        return;
+    }
 
     logger.log('Updating beneficiary ...');
     await beneficiaries.updateRibId(_beneficiaryId, ribId);

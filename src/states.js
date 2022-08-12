@@ -3,53 +3,60 @@ import db from './database/database.js';
 import logger from './utils/logger.js';
 import sqlBuilder from './utils/sqlBuilder.js';
 
+import beneficiaries from './beneficiaries.js';
 import instructions from './instructions.js';
 import documents from './documents.js';
 import { WORKFLOW_STATUS } from './mappings.js';
 
+const FINAL_STATE = [ 'Terminée', 'Refusée', 'Suspendue' ];
 const PAYMENT_DECISION = [ 'new', 'accepted' ];
 
 // Eventually update payment decision
 // Eventually import document
 // Import state
-async function importStates(_beneficiaryId, _data) {
+async function importStates(_beneficiaryId, _insertisId, _data) {
     let rsjFolderState = 'Non orienté';
 
     logger.log('Importing states ...');
     for (let i=0; i<_data.evolution.length; i++) {
         const stateData = _data.evolution[i];
 
-        const state = WORKFLOW_STATUS[stateData.status];
+        let state = WORKFLOW_STATUS[stateData.status];
         if (!state) {
             logger.log(`Skipping state ${stateData.status} ...`);
             continue;
         }
 
         const stateDate = stateData.time.substr(0, 10);
-        const instructionDate = new Date(stateData.time).toLocalDateString('sv-SE');
+        const instructionDate = new Date(stateData.time).toLocaleDateString('sv-SE');
 
-        const instructionId = instructions.getClosestInstructionId(_beneficiaryId, instructionDate);
+        const instructionId = await instructions.getClosestInstructionId(_beneficiaryId, instructionDate);
         if (!instructionId) {
-            logger.error(`Instruction not found for beneficiary #${beneficiaryId} at or before date ${lastDayPreviousMonth}.`);
+            logger.error(`Instruction not found for beneficiary #${beneficiaryId} at or before date ${lastDayPreviousMonth}.`, 'states.js:importStates');
             continue;
         }
 
-        if (state == await getLastState(instructionId)) {
+        const lastState = await getLastState(instructionId);
+        if (lastState == 'Demande de suspension' && state == 'Terminée') {
+            state = 'Suspendue';
+        }
+
+        if (state == lastState || state == 'Terminée' && FINAL_STATE.includes(lastState)) {
             logger.log(`Skipping state ${stateData.status} ...`);
             continue;
         }
 
         logger.log(`Importing state '${state}' ...`);
 
-        let comment = '';
-        for (let j=0; j<stateData.parts.length; j++) {
-            const part = stateData.parts[i];
+        let comment = stateData.comment || '';
+        for (let j=0; j<stateData.parts?.length || 0; j++) {
+            const part = stateData.parts[j];
 
             switch (part.type) {
                 case 'workflow-comment':
                     comment = [ comment, part.content ].join(' ');
 
-                    if (PAYMENT_DECISION.contains(stateData.status)) {
+                    if (PAYMENT_DECISION.includes(stateData.status)) {
                         logger.log('Importing payment decision ...');
 
                         const amount = parseInt(part.content.split(/ Euros| €/)[0].split(' ').pop());
@@ -62,80 +69,98 @@ async function importStates(_beneficiaryId, _data) {
                               await instructions.updatePaymentCounterDecision(instructionId, amount, months, part.content);
                             }
                         } else {
-                            logger.error(`Error importing payment decision, got '${amount}'€ for '${months}' months ...`);
+                            logger.error(`Error importing payment decision, got ${amount}€ for '${months}' months ...`, 'states.js:importStates');
                         }
                     }
 
                     break;
 
                 case 'workflow-attachment':
-                    await documents.importOtherDocument(instructionId, { identifiant_insertis: insertisId, stateDate, ...part }, comment);
+                    await documents.importOtherDocument(_beneficiaryId, instructionId, { identifiant_insertis: _insertisId, date: stateDate, ...part }, comment);
                     break;
 
-                default: logger.log(`Error - Unhandled part type ${part.type}`);
-            }
-
-            switch (state) {
-                case 'Analyse en cours':
-                    if (rsjFolderState == 'Non orienté') {
-                        beneficiaries.updateStateId(_beneficiaryId, 'En analyse');
-                        rsjFolderState = 'En analyse';
-                    }
-                    break;
-
-                case 'Refusée':
-                    if (rsjFolderState == 'En analyse') {
-                        beneficiaries.updateStateId(_beneficiaryId, 'Refusé');
-                        rsjFolderState = 'Refusé';
-                    }
-                    break;
-
-                case 'Acceptée':
-                    if (rsjFolderState == 'En analyse'){
-                        beneficiaries.openAllowance(_beneficiaryId, stateDate);
-                        rsjFolderState = 'Droit ouvert (en attente de versement)';
-                    }
-                    break;
-
-                case 'Versement en cours':
-                    if (rsjFolderState == 'Droit ouvert (en attente de versement)') {
-                        beneficiaries.updateStateId(_beneficiaryId, 'Droit ouvert (avec versement)');
-                        rsjFolderState = 'Droit ouvert (avec versement)';
-                    }
-                    break;
-
-                case 'Suspendue':
-                    if (rsjFolderState == 'Droit ouvert (avec versement)') {
-                        beneficiaries.updateStateId(_beneficiaryId, 'Droit ouvert (sans versement)');
-                        rsjFolderState = 'Droit ouvert (sans versement)';
-                    }
-                    break;
-
-                case 'Terminée':
-                    if (rsjFolderState == 'Droit ouvert (avec versement)') {
-                        beneficiaries.updateStateId(_beneficiaryId, 'Droit ouvert (sans versement)');
-                        rsjFolderState = 'Droit ouvert (sans versement)';
-                    }
-                    break;
+                default: logger.error(`Unhandled part type ${part.type}`, 'states.js:importStates');
             }
         }
 
-        switch (stateData.status) {
-            case 'Demande transmise':
-                await insert(instructionId, 'En création', stateDate, '');
-                break;
-
-            case 'Réactiver':
-                const previousInstructionId = instructions.getPreviousInstructionId(_beneficiaryId, instructionId);
-                if (!previousInstructionId) {
-                    logger.error(`Instruction not found for beneficiary #${beneficiaryId} before instruction #${instructionId}.`);
-                    continue;
+        switch (state) {
+            case 'Analyse en cours':
+                if (rsjFolderState == 'Non orienté') {
+                    logger.log(`Updating RSJ folder state to 'En analyse' ...`);
+                    beneficiaries.updateState(_beneficiaryId, 'En analyse');
+                    rsjFolderState = 'En analyse';
                 }
-                await insert(previousInstructionId, 'Terminée', stateDate, '');
+                break;
+
+            case 'Refusée':
+                if (rsjFolderState == 'En analyse') {
+                    logger.log(`Updating RSJ folder state to 'Refusé' ...`);
+                    beneficiaries.updateState(_beneficiaryId, 'Refusé');
+                    rsjFolderState = 'Refusé';
+                } else if (rsjFolderState == 'Droit ouvert (sans versement)') {
+                    logger.log(`Updating RSJ folder state to 'Droit ouvert (sans versement)' ...`);
+                    beneficiaries.updateState(_beneficiaryId, 'Droit ouvert (sans versement)');
+                    rsjFolderState = 'Droit ouvert (sans versement)';
+                }
+                break;
+
+            case 'Acceptée':
+                if (rsjFolderState == 'En analyse') {
+                    logger.log(`Updating RSJ folder state to 'Droit ouvert (en attente de versement)' ...`);
+                    beneficiaries.openAllowance(_beneficiaryId, stateDate);
+                    rsjFolderState = 'Droit ouvert (en attente de versement)';
+                }
+                break;
+
+            case 'Versement en cours':
+                if (rsjFolderState == 'Droit ouvert (en attente de versement)') {
+                    logger.log(`Updating RSJ folder state to 'Droit ouvert (avec versement)' ...`);
+                    beneficiaries.updateState(_beneficiaryId, 'Droit ouvert (avec versement)');
+                    rsjFolderState = 'Droit ouvert (avec versement)';
+                }
+                break;
+
+            case 'Suspendue':
+                if (rsjFolderState == 'Droit ouvert (avec versement)') {
+                    logger.log(`Updating RSJ folder state to 'Droit ouvert (sans versement)' ...`);
+                    beneficiaries.updateState(_beneficiaryId, 'Droit ouvert (sans versement)');
+                    rsjFolderState = 'Droit ouvert (sans versement)';
+                }
+                break;
+
+            case 'Terminée':
+                if (rsjFolderState == 'Droit ouvert (avec versement)') {
+                    logger.log(`Updating RSJ folder state to 'Droit ouvert (sans versement)' ...`);
+                    beneficiaries.updateState(_beneficiaryId, 'Droit ouvert (sans versement)');
+                    rsjFolderState = 'Droit ouvert (sans versement)';
+                }
                 break;
         }
 
-        await insert(instructionId, state, stateDate, comment);
+        if (stateData.status == '3') {
+            logger.log(`Importing additional state 'Terminé' on previous instruction ...`);
+            const previousInstructionId = await instructions.getPreviousInstructionId(_beneficiaryId, instructionId);
+            if (previousInstructionId) {
+                const previousInstructionLastState = await getLastState(previousInstructionId);
+                if (previousInstructionLastState) {
+                    if (!FINAL_STATE.includes(previousInstructionLastState)) {
+                        const additionalStateId = await insert(previousInstructionId, 'Terminée', stateDate, '');
+                        if (!additionalStateId) {
+                            logger.error(`Failed to import state 'Terminé' on instruction #${previousInstructionId} for beneficiary ${_beneficiaryId}.`, 'state.js:importStates');
+                        }
+                    }
+                } else {
+                    logger.error(`Last state not found for instruction #${previousInstructionId} of beneficiary ${_beneficiaryId}.`, 'state.js:importStates');
+                }
+            } else {
+                logger.error(`Instruction not found for beneficiary #${_beneficiaryId} before instruction #${instructionId}.`, 'states.js:importStates');
+            }
+        }
+
+        const stateId = await insert(instructionId, state, stateDate, comment);
+        if (!stateId) {
+            logger.error(`Failed to import state '${state}' on instruction #${instructionId} for beneficiary ${_beneficiaryId}.`, 'state.js:importStates');
+        }
     }
 
     await instructions.updateStates();
@@ -156,7 +181,7 @@ export async function getLastState(_instructionId) {
         _select: [ '"status"' ],
         _from: [ '"traceability"' ],
         _where: [ `"instructionRsjId" = ${_instructionId}` ],
-        _orderBy: [ '"statusDate" DESC' ],
+        _orderBy: [ '"statusDate" DESC', '"id" DESC' ],
         _limit: 1
     });
 
@@ -175,6 +200,6 @@ async function insert(_instructionId, _state, _date, _comment) {
     return res[1]?.rows[0]?.id;
 }
 
-const states = { getSqlSelectInstructionsLastState, insert };
+const states = { importStates, getSqlSelectInstructionsLastState, insert };
 
 export default states;
