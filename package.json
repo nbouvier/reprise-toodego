@@ -5,15 +5,19 @@
   "main": "main.js",
   "scripts": {
     "test": "mocha --recursive",
-    "dev": "node ./main.js",
-    "live": "node ./main.js live"
+    "dev": "node ./main.js --config=.env.dev",
+    "prod": "node ./main.js --config=.env",
+    "fetch-dev": "node ./init.js --config=.env.dev --instructions=[364,425,427] --payments=[292,293,294,298,299,301,374,384,387,377,385,389]",
+    "fetch-prod": "node ./init.js --config=.env"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "chai": "^4.3.6",
+    "cli-progress": "^3.11.2",
     "deep-equal-in-any-order": "^2.0.0",
     "dotenv": "^16.0.0",
+    "minimist": "^1.2.6",
     "mocha": "^10.0.0",
     "node-fetch": "^3.2.4",
     "pg": "^8.7.3"

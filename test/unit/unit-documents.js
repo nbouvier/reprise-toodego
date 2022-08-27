@@ -1,5 +1,5 @@
-import config from '../../config.js';
-config.test();
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.test' });
 
 import { expect } from 'chai';
 
@@ -10,8 +10,6 @@ import { decrypt } from '../../src/utils/encryption.js';
 import documents, { getSqlSelectTitleId, insert } from '../../src/documents.js';
 
 describe('documents.js', function() {
-
-    // TODO: Test import functions
 
     describe('#getSqlSelectTitleId()', function() {
         it('should return correct SQL subquery', async function() {

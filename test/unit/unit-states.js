@@ -1,5 +1,5 @@
-import config from '../../config.js';
-config.test();
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.test' });
 
 import { expect } from 'chai';
 
@@ -9,8 +9,6 @@ import sqlBuilder from '../../src/utils/sqlBuilder.js';
 import states, { getLastState } from '../../src/states.js';
 
 describe('states.js', function() {
-
-    // TODO: Test import functions
 
     describe('#getSqlSelectInstructionsLastState()', function() {
         it('should return correct SQL subquery', async function() {

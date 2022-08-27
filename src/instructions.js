@@ -1,4 +1,7 @@
 import fs from 'fs';
+import minimist from 'minimist';
+const args = minimist(process.argv.slice(2));
+import cliProgress from 'cli-progress';
 
 import db from './database/database.js';
 
@@ -12,44 +15,42 @@ import payments from './payments.js';
 import documents from './documents.js';
 import states from './states.js';
 
-const allowedInstructionIds = [ 364, 425, 427 ];
-
 // Create RSJ folder
 // Import all documents
 // Import payment data
 // Create next payment row
 // Import states
 export async function importInstructions() {
-    logger.log('Fetching all instructions ...');
-    const instrutions = await api.fetchAll(process.env.TOODEGO_INSTRUCTION_PATH);
+    const allowedInstructions = args.instructions ? JSON.parse(args.instructions) : null;
+    const instructions = fs.readdirSync(process.env.INSTRUCTION_DATA_FOLDER);
+    const cliBar = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
+    cliBar.start(allowedInstructions ? allowedInstructions.length : instructions.length, 0);
+    for (let i=0; i<instructions.length; i++) {
+        const instruction = JSON.parse(fs.readFileSync(`${process.env.INSTRUCTION_DATA_FOLDER}${instructions[i]}`, 'utf8'));
 
-    fs.appendFileSync(process.env.INSTRUCTION_DATA_FILE, '{');
-    for (let i=0; i<instrutions.length; i++) {
-        // Test only
-        if (process.env.ENV == 'dev') {
-            if (!allowedInstructionIds.includes(instrutions[i].id)) {
-                logger.warning(`Skipping instruction #${instrutions[i].id}.`);
-                continue;
-            }
+        if (allowedInstructions && !allowedInstructions.includes(parseInt(instruction.id))) {
+            continue;
         }
-
-        logger.log(`Fetching instruction #${instrutions[i].id} ...`);
-        const instruction = await api.fetchOne(process.env.TOODEGO_INSTRUCTION_PATH, instrutions[i].id);
-        fs.appendFileSync(process.env.INSTRUCTION_DATA_FILE, `${i?',':''}"${instrutions[i].id}":${JSON.stringify(instruction)}`);
-        const insertisId = instruction.fields.identifiant_insertis;
-
-        const beneficiaryId = await beneficiaries.getId(insertisId);
-        if (!beneficiaryId) {
-            logger.error(`Beneficiary not found with id #${insertisId}.`, 'instructions.js:importInstructions');
+        if (!args['replay-instructions'] && fs.existsSync(`${process.env.LOG_FOLDER}instructions/${instruction.id}.txt`)) {
+            cliBar.increment();
             continue;
         }
 
-        await documents.importTutorshipDocuments(beneficiaryId, instruction);
+        const insertisId = instruction.fields.identifiant_insertis;
+        logger.log(`Importing instruction #${instruction.id} for beneficiary #${insertisId} ...`, [ `instructions/${instruction.id}.txt`, `instructions/log.txt` ]);
+
+        const beneficiaryId = await beneficiaries.getId(insertisId);
+        if (!beneficiaryId) {
+            logger.error(`Instruction #${instruction.id} - Beneficiary #${insertisId} - Beneficiary not found.`, 'instructions.js:importInstructions', [ `instructions/${instruction.id}.txt`, `instructions/error.txt` ]);
+            cliBar.increment();
+            continue;
+        }
 
         await beneficiaries.importRsjFolder(beneficiaryId, instruction);
 
         await documents.importNationalityDocuments(beneficiaryId, instruction);
         await documents.importDwellingDocuments(beneficiaryId, instruction);
+        await documents.importTutorshipDocuments(beneficiaryId, instruction);
 
         await rib.importRib(beneficiaryId, instruction);
         await payments.importNextPayment(beneficiaryId, instruction);
@@ -57,10 +58,12 @@ export async function importInstructions() {
         await states.importStates(beneficiaryId, insertisId, instruction);
 
         await updateComment(beneficiaryId, instruction);
-    }
-    fs.appendFileSync(process.env.INSTRUCTION_DATA_FILE, '}');
 
-    logger.log('Updating rsj folder status ...');
+        cliBar.increment();
+    }
+    cliBar.stop();
+
+    logger.log('Updating rsj folder status ...', `instructions/log.txt`, true);
     beneficiaries.closeAllowancesForAge()
 }
 
@@ -112,12 +115,14 @@ export async function getAllIds(_beneficiaryId) {
     return res.rows.map(row => row.id);
 }
 
-export async function getClosestInstructionId(_beneficiaryId, _date) {
+export async function getClosestInstructionId(_beneficiaryId, _date, _revert=false) {
+    const operator = _revert ? '>' : '<=';
+    const order = _revert ? 'ASC' : 'DESC';
     const sql = sqlBuilder.getSelect({
         _select: [ '"id"' ],
         _from: [ '"instruction_rsj"' ],
-        _where: [ `"beneficiaryId" = ${_beneficiaryId}`, `"instructionDate" <= '${_date}'` ],
-        _orderBy: [ `"instructionDate" DESC` ],
+        _where: [ `"beneficiaryId" = ${_beneficiaryId}`, `"instructionDate" ${operator} '${_date}'` ],
+        _orderBy: [ `"instructionDate" ${order}` ],
         _limit: 1
     });
 
@@ -166,7 +171,7 @@ export async function updateAfterTutorshipDocuments(_instructionIds, _tutorship,
     const sql = sqlBuilder.getUpdate({
         _update: '"instruction_rsj"',
         _set: [ `"underSupervision" = ${_tutorship}`, ...Object.entries(_documents).map(([ k, v ]) => `"${k}" = ${v}`) ],
-        _where: [ `"id" IN (${_instructionIds})` ]
+        _where: [ `"id" IN (${_instructionIds.join(',')})` ]
     });
 
     await db.query(sql);
@@ -206,12 +211,12 @@ export async function updateStates() {
 }
 
 export async function updateComment(_beneficiaryId, _data) {
-    logger.log(`Saving payment decision in DIE comment ...`);
+    logger.log(`Saving payment decision in DIE comment ...`, `instructions/${_data.id}.txt`);
 
     const dateEn = new Date().toLocaleDateString('sv-SE');
     const instructionId = await getClosestInstructionId(_beneficiaryId, dateEn);
     if (!instructionId) {
-        logger.error(`Couldn't find latest instruction for beneficiary #${_beneficiaryId}`, 'instructions.js:insertComment');
+        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - No instruction found.`, 'instructions.js:insertComment', [ `instructions/${_data.id}.txt`, `instructions/error.txt` ]);
         return;
     }
 
@@ -228,8 +233,6 @@ export async function updateComment(_beneficiaryId, _data) {
         });
 
         await db.query(sql);
-    } else {
-        logger.error(`Invalid payment decision for beneficiary #${_beneficiaryId}, got ${amount}€ for ${months} months`, 'instructions.js:updateComment');
     }
 }
 

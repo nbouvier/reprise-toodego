@@ -8,6 +8,15 @@ FROM "instruction_rsj"
 GROUP BY "beneficiaryId", "instructionDate"
 HAVING COUNT(*) > 1;
 
+-- Bénéficiaires avec instructions à la même date
+-- => 1 résultat = 1 référent qui a potentiellement fait n'importe quoi avec la duplication d'instruction
+-- => Supprimer les instructions inutiles
+SELECT ir1."beneficiaryId", ir1."instructionDate", ir2."instructionDate", ir2."instructionDate" - ir1."instructionDate" AS "dayDifference", ir1."comment", ir1."commitmentForNext3Months"
+FROM "instruction_rsj" ir1
+LEFT JOIN "instruction_rsj" ir2 ON ir1."beneficiaryId" = ir2."beneficiaryId" AND ir1."id" < ir2."id"
+WHERE ir1."comment" = ir2."comment" AND ir1."commitmentForNext3Months" = ir2."commitmentForNext3Months"
+ORDER BY ir2."instructionDate" - ir1."instructionDate";
+
 -- Instructions avec conclusion de paiement manquante (hors instruction En création)
 -- => Chercher dans les logs d'erreurs les échecs de reprise de conclusion de paiement ou dans les données Toodego
 WITH "instruction_state" AS (
@@ -54,6 +63,22 @@ SELECT "beneficiaryId", "id" AS "instructionRsjId", "paymentCounterProposal", "p
 FROM "instruction_rsj"
 WHERE ("paymentCounterProposal" = false OR "paymentCounterProposal" IS null) AND "paymentCounterAmount" IS NOT null;
 
+-- Instructions avec paiement lié de la mauvaise somme
+-- => Il y a sûrement eu un soucis lors de la phase de lien des paiements aux instructions, les paiements sont sûrement sur la mauvaise instruction
+WITH "instruction_expected_payments" AS (
+	SELECT "id" AS "instructionRsjId", CASE
+		WHEN "paymentCounterProposal" = false THEN "paymentAmount"
+		WHEN "paymentCounterProposal" = true THEN "paymentCounterAmount"
+	END AS "expectedPaymentAmount"
+	FROM "instruction_rsj"
+	WHERE "paymentCounterProposal" IS NOT null
+)
+SELECT i."beneficiaryId", i."id" AS "instructionRsjId", ep."expectedPaymentAmount", p."amount" AS "paymentAmount", p."id" AS "paymentId"
+FROM "instruction_rsj" i
+JOIN "rsj_payment" p ON p."instructionRsjId" = i."id"
+JOIN "instruction_expected_payments" ep ON ep."instructionRsjId" = i."id"
+WHERE ep."expectedPaymentAmount" <> p."amount";
+
 -- Instructions avec un nombre de paiements associés incorrects (hors instruction Suspendue car leurs paiements non réalisés sont supprimés)
 -- => Si l'instruction est terminée, vérifier que les paiements n'aient pas été mis sur une autre instruction du bénéficiaire + vérifier dans les données Toodego
 -- => Si l'instruction est en cours, ce sont sûrement des paiements Prévu qu'il faut créer en bdd
@@ -80,22 +105,6 @@ JOIN "instruction_expected_payments" ep ON ep."instructionRsjId" = i."id"
 LEFT JOIN "instruction_payments" p ON p."instructionRsjId" = i."id"
 LEFT JOIN "instruction_state" s ON s."instructionRsjId" = i."id"
 WHERE ep."expectedNumberOfPayments" <> p."numberOfPayments" AND s."status" <> 'Suspendue';
-
--- Instructions avec paiement lié de la mauvaise somme
--- => Il y a sûrement eu un soucis lors de la phase de lien des paiements aux instructions, les paiements sont sûrement sur la mauvaise instruction
-WITH "instruction_expected_payments" AS (
-	SELECT "id" AS "instructionRsjId", CASE
-		WHEN "paymentCounterProposal" = false THEN "paymentAmount"
-		WHEN "paymentCounterProposal" = true THEN "paymentCounterAmount"
-	END AS "expectedPaymentAmount"
-	FROM "instruction_rsj"
-	WHERE "paymentCounterProposal" IS NOT null
-)
-SELECT i."beneficiaryId", i."id" AS "instructionRsjId", ep."expectedPaymentAmount", p."amount" AS "paymentAmount", p."id" AS "paymentId"
-FROM "instruction_rsj" i
-JOIN "rsj_payment" p ON p."instructionRsjId" = i."id"
-JOIN "instruction_expected_payments" ep ON ep."instructionRsjId" = i."id"
-WHERE ep."expectedPaymentAmount" <> p."amount";
 
 -- Instruction sans état
 -- => Il y a sûrement eu un soucis lors de la phase de lien des états, les états sont sûrement sur la mauvaise instruction

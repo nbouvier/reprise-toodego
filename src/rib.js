@@ -11,21 +11,21 @@ import documents from './documents.js';
 // Import payment data
 // Update beneficiary data
 export async function importRib(_beneficiaryId, _data) {
-    logger.log(`Importing banking document ...`);
+    logger.log(`Importing banking document ...`, `instructions/${_data.id}.txt`);
     const documentId = await documents.importBankingDocument(_beneficiaryId, _data);
     if (!documentId) {
-        logger.error(`Failed to import banking document for beneficiary ${_beneficiaryId}.`, 'rib.js:importRib');
+        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Failed to import banking document.`, 'rib.js:importRib', [ `instructions/${_data.id}.txt`, 'instructions/error.txt' ]);
         return;
     }
 
-    logger.log('Importing rib ...');
+    logger.log('Importing rib ...', `instructions/${_data.id}.txt`);
     const ribId = await insert(documentId, _data);
     if (!documentId) {
-        logger.error(`Failed to import rib for beneficiary ${_beneficiaryId}.`, 'rib.js:importRib');
+        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Failed to import rib.`, 'rib.js:importRib', [ `instructions/${_data.id}.txt`, 'instructions/error.txt' ]);
         return;
     }
 
-    logger.log('Updating beneficiary ...');
+    logger.log('Updating beneficiary ...', `instructions/${_data.id}.txt`);
     await beneficiaries.updateRibId(_beneficiaryId, ribId);
 }
 

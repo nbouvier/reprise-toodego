@@ -1,5 +1,5 @@
-import config from '../../config.js';
-config.test();
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.test' });
 
 import { expect } from 'chai';
 

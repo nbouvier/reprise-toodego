@@ -1,5 +1,5 @@
-import config from '../../config.js';
-config.test();
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.test' });
 
 import chai from 'chai';
 import equalInAnyOrder from 'deep-equal-in-any-order';
@@ -12,8 +12,6 @@ import sqlBuilder from '../../src/utils/sqlBuilder.js';
 import instructions, { updateComment } from '../../src/instructions.js';
 
 describe('instructions.js', function() {
-
-    // TODO: Test import functions
 
     describe('#getSqlSelectInstructionPayments()', function() {
         it('should return correct SQL subquery', async function() {
@@ -55,8 +53,14 @@ describe('instructions.js', function() {
             expect(await instructions.getClosestInstructionId(1, '2022-02-01')).to.equal(2);
             expect(await instructions.getClosestInstructionId(2, '2022-02-23')).to.equal(3);
         });
+        it('should return the closest instruction_rsj.id in revert order', async function() {
+            expect(await instructions.getClosestInstructionId(1, '2021-12-28', true)).to.equal(1);
+            expect(await instructions.getClosestInstructionId(1, '2022-01-01', true)).to.equal(2);
+            expect(await instructions.getClosestInstructionId(2, '2021-12-12', true)).to.equal(3);
+        });
         it('should return undefined if no instruction_rsj matches', async function() {
             expect(await instructions.getClosestInstructionId(1, '2021-12-30')).to.be.undefined;
+            expect(await instructions.getClosestInstructionId(1, '2022-02-01', true)).to.be.undefined;
         });
     });
 
@@ -281,7 +285,7 @@ describe('instructions.js', function() {
         let rows;
 
         before(async function() {
-            const data = { workflow: { fields: { nombre_de_mois_retenu: 3, montant_retenu: 400 } } };
+            const data = { id: 1, workflow: { fields: { nombre_de_mois_retenu: 3, montant_retenu: 400 } } };
             await updateComment(1, data);
 
             const sql = sqlBuilder.getSelect({

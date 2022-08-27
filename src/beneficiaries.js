@@ -5,7 +5,7 @@ import sqlBuilder from './utils/sqlBuilder.js';
 
 // Create RSJ folder
 export async function importRsjFolder(_beneficiaryId, _data) {
-    logger.log(`Creating RSJ folder ...`);
+    logger.log(`Creating RSJ folder ...`, `instructions/${_data.id}.txt`);
     await insertBeneficiaryRsj(_beneficiaryId);
 }
 

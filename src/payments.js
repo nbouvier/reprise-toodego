@@ -1,4 +1,7 @@
 import fs from 'fs';
+import minimist from 'minimist';
+const args = minimist(process.argv.slice(2));
+import cliProgress from 'cli-progress';
 
 import db from './database/database.js';
 
@@ -11,82 +14,91 @@ import rib from './rib.js';
 import instructions from './instructions.js';
 import { MONTHS } from './mappings.js';
 
-const allowedPaymentIds = [ 292, 293, 294, 298, 299, 301, 374, 384, 387, 377, 385, 389 ];
-
 // Insert all payments
 // Update remainingPayment
 export async function importPayments() {
-    logger.log('Fetching all payments ...');
-    const payments = await api.fetchAll(process.env.TOODEGO_PAYMENT_PATH);
+    const allowedPayments = args.payments ? JSON.parse(args.payments) : null;
+    const payments = fs.readdirSync(process.env.PAYMENT_DATA_FOLDER);
+    const cliBar = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
+    cliBar.start(allowedPayments ? allowedPayments.length : payments.length, 0);
+    for (let i=0; i<payments.length; i++) {
+        const payment = JSON.parse(fs.readFileSync(`${process.env.PAYMENT_DATA_FOLDER}${payments[i]}`, 'utf8'));
 
-    fs.appendFileSync(process.env.PAYMENT_DATA_FILE, '{');
-    for (let i=0; i<payments.data.length; i++) {
-        // Test only
-        if (process.env.ENV == 'dev') {
-            if (!allowedPaymentIds.includes(payments.data[i].id)) {
-                logger.warning(`Skipping payment #${payments.data[i].id}.`);
-                continue;
-            }
+        if (allowedPayments && !allowedPayments.includes(parseInt(payment.id))) {
+            continue;
+        }
+        if (!args['replay-payments'] && fs.existsSync(`${process.env.LOG_FOLDER}payments/${payment.id}.txt`)) {
+            cliBar.increment();
+            continue;
         }
 
-        logger.log(`Fetching payment #${payments.data[i].id} ...`);
-        const payment = await api.fetchOne(process.env.TOODEGO_PAYMENT_PATH, payments.data[i].id);
-        fs.appendFileSync(process.env.PAYMENT_DATA_FILE, `${i?',':''}"${payments.data[i].id}":${JSON.stringify(payment)}`);
+        logger.log(`Importing payment #${payment.id} ...`, [ `payments/${payment.id}.txt`, 'payments/log.txt' ]);
         const insertisId = payment.fields.identifiant_insertis;
 
         const beneficiaryId = await beneficiaries.getId(insertisId);
         if (!beneficiaryId) {
-            logger.error(`Beneficiary not found with id #${insertisId}.`, 'payments.js:importPayments');
+            logger.error(`Payment #${payment.id} - Beneficiary #${insertisId} - Beneficiary not found.`, 'payments.js:importPayments', [ `payments/${payment.id}.txt`, 'payments/error.txt' ]);
+            cliBar.increment();
             continue;
         }
 
         const beneficiaryRsjId = await beneficiaries.getRsjId(insertisId);
         if (!beneficiaryRsjId) {
-            logger.error(`BeneficiaryRsj not found with id #${insertisId}.`, 'payments.js:importPayments');
+            logger.error(`Payment #${payment.id} - Beneficiary #${insertisId} - BeneficiaryRsj not found.`, 'payments.js:importPayments', [ `payments/${payment.id}.txt`, 'payments/error.txt' ]);
+            cliBar.increment();
             continue;
         }
 
         let paymentDate = new Date(payment.receipt_time);
         const lastDayPreviousMonth = new Date(paymentDate.getFullYear(), paymentDate.getMonth(), 0).toLocaleDateString('sv-SE');
         paymentDate = paymentDate.toLocaleDateString('sv-SE');
-        const instructionId = await instructions.getClosestInstructionId(beneficiaryId, lastDayPreviousMonth);
+        let instructionId = await instructions.getClosestInstructionId(beneficiaryId, lastDayPreviousMonth);
         if (!instructionId) {
-            logger.error(`Instruction not found for beneficiary #${beneficiaryId} at date ${lastDayPreviousMonth}.`, 'payments.js:importPayments');
-            continue;
+            logger.warning(`Payment #${payment.id} - Beneficiary #${beneficiaryId} - Instruction not found at or before date ${lastDayPreviousMonth}.`, 'payments.js:importPayments', [ `payments/${payment.id}.txt`, 'payments/warning.txt' ]);
+            instructionId = await instructions.getClosestInstructionId(beneficiaryId, lastDayPreviousMonth, true);
+            if (!instructionId) {
+                logger.error(`Payment #${payment.id} - Beneficiary #${beneficiaryId} - No instruction found.`, 'payments.js:importPayments', [ `payments/${payment.id}.txt`, 'payments/error.txt' ]);
+                cliBar.increment();
+                continue;
+            }
         }
 
         const ribId = await beneficiaries.getRibId(beneficiaryRsjId);
         if (!ribId) {
-            logger.error(`RIB not found for beneficiary #${beneficiaryId}.`, 'payments.js:importPayments');
+            logger.error(`Payment #${payment.id} - Beneficiary #${beneficiaryId} - RIB not found.`, 'payments.js:importPayments', [ `payments/${payment.id}.txt`, 'payments/error.txt' ]);
+            cliBar.increment();
             continue;
         }
 
         const paymentData = extractPaymentData(payment);
         const paymentId = await insert(beneficiaryRsjId, instructionId, ribId, paymentData.amount, paymentData.month, paymentData.createdAt);
         if (!paymentId) {
-            logger.error(`Failed to import payment #${payments.data[i].id} for beneficiary ${beneficiaryId}.`, 'payments.js:importPayments');
+            logger.error(`Payment #${payment.id} - Beneficiary #${beneficiaryId} - Failed to import payment #${payments[i].id}.`, 'payments.js:importPayments', [ `payments/${payment.id}.txt`, 'payments/error.txt' ]);
         }
+        logger.log(`Updating rib ...`, `payments/${payment.id}.txt`);
         await rib.updateBeginDate(beneficiaryId, paymentDate);
+
+        cliBar.increment();
     }
-    fs.appendFileSync(process.env.PAYMENT_DATA_FILE, '}');
+    cliBar.stop();
 
     await importNextPaymentData();
 
-    logger.log('Updating next payments ...');
+    logger.log('Updating next payments ...', `payments/log.txt`, true);
     await updateNextPayments();
 }
 
 // Create next payment row
 // Update beneficiary data
 export async function importNextPayment(_beneficiaryId, _data) {
-    logger.log('Creating next payment ...');
+    logger.log('Creating next payment ...', `instructions/${_data.id}.txt`);
     const nextPaymentId = await insertNextPayment();
     if (!nextPaymentId) {
-        logger.error(`Failed to create next payment for beneficiary ${_beneficiaryId}.`, 'payments.js:importNextPayment');
+        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Failed to create next payment.`, 'payments.js:importNextPayment', [ `payments/${_data.id}.txt`, 'payments/error.txt' ]);
         return;
     }
 
-    logger.log('Updating beneficiary rsj ...');
+    logger.log('Updating beneficiary rsj ...', `instructions/${_data.id}.txt`);
     await beneficiaries.updateNextPaymentId(_beneficiaryId, nextPaymentId);
 }
 
@@ -96,7 +108,7 @@ export async function importNextPayment(_beneficiaryId, _data) {
 // To get those with linked payments < imported payments
 // Create missing payments
 export async function importNextPaymentData() {
-    logger.log('Creating planned payments ...');
+    logger.log('Creating planned payments ...', `payments/log.txt`, true);
 
     const sql = sqlBuilder.getSelect({
         _select: [
@@ -138,14 +150,14 @@ export async function importNextPaymentData() {
     const date = new Date();
     for (let i=0; i<res.rows.length; i++) {
         let row = res.rows[i];
-        logger.log(`Creating ${row.missingPayments} payments of ${row.paymentAmount}€ for beneficiary #${row.beneficiaryId}`);
+        logger.log(`Creating ${row.missingPayments} payments of ${row.paymentAmount}€ for beneficiary #${row.beneficiaryId}`, `payments/log.txt`);
         for (let j=0; j<parseInt(row.missingPayments); j++) {
             const state = j ? 'Prévu' : 'Réalisé';
             const month = new Date(date.getFullYear(), date.getMonth()+j, 5).toLocaleDateString('sv-SE');
-            logger.log(`Payment of ${month} (${state})`);
+            logger.log(`Payment of ${month} (${state})`, `payments/log.txt`);
             const paymentId = await insert(row.beneficiaryRsjId, row.instructionId, row.paymentDataId, row.paymentAmount, month, date.toLocaleDateString('sv-SE'), state);
             if (!paymentId) {
-                logger.error(`Failed to create payment at month ${month} for beneficiary ${row.beneficiaryId}.`, 'payments.js:importNextPaymentData');
+                logger.error(`Beneficiary #${row.beneficiaryId} - Failed to create payment at month ${month}.`, 'payments.js:importNextPaymentData', [ `payments/log.txt`, `payments/error.txt` ]);
             }
         }
     }

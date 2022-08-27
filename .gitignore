@@ -4,7 +4,12 @@
 node_modules/
 package-lock.json
 
-log*.txt
-data*.json
+logs*/*
+logs_dev/
+logs_test/
+data*/*
+data*_dev/
 
 .git/
+
+sql/prod_setup/backup_*

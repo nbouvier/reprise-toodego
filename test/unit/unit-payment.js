@@ -1,5 +1,5 @@
-import config from '../../config.js';
-config.test();
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.test' });
 
 import { expect } from 'chai';
 
@@ -10,8 +10,6 @@ import beneficiaries from '../../src/beneficiaries.js';
 import payments, { getSqlSelectStateId, getSqlSelectRemainingPayment, updateNextPayments, extractPaymentData, insert, insertNextPayment } from '../../src/payments.js';
 
 describe('payments.js', function() {
-
-    // TODO: Test import functions
 
     describe('#getSqlSelectStateId()', function() {
         it('should return correct SQL subquery', async function() {

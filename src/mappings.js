@@ -17,7 +17,7 @@ export const TYPE_JUSTIFICATIF_IDENTITE = {
                 }
             },
 
-            "Pièce d'identité périmée": {
+            "Pièce d’identité périmée": {
                 insertis: {
                     value: "ExpiredIdentityFr",
                     fileVar: [ "credentialDocument1Id", "credentialDocument2Id" ],
@@ -194,7 +194,7 @@ export const TYPE_JUSTIFICATIF_DOMICILIATION = {
 export const JUSTIFICATIF_TUTELLE = {
     insertis: {
         fileVar: [ "supervisionDocument1Id", "supervisionDocument2Id" ],
-        fileTitle: [ "Décision de jugement", "Autorisation tuteur / curateur" ],
+        fileTitle: [ "Autre", "Autre"/* "Décision de jugement", "Autorisation tuteur / curateur" */ ],
         fileName: [ "jugement", "autorisation_tuteur" ]
     },
     toodego: {
