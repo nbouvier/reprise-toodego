@@ -6,7 +6,7 @@ import sqlBuilder from './utils/sqlBuilder.js';
 import beneficiaries from './beneficiaries.js';
 import instructions from './instructions.js';
 import documents from './documents.js';
-import { WORKFLOW_STATUS } from './mappings.js';
+import { WORKFLOW_STATUS, AUTRE_DOCUMENTS } from './mappings.js';
 
 const FINAL_STATE = [ 'Terminée', 'Refusée', 'Suspendue' ];
 const PAYMENT_DECISION = [ 'new', 'accepted' ];
@@ -78,8 +78,8 @@ async function importStates(_beneficiaryId, _insertisId, _data) {
                     break;
 
                 case 'workflow-attachment':
-                    logger.log(part.filename, 'filenames.txt');
-                    await documents.importOtherDocument(_beneficiaryId, instructionId, { id: _data.id, identifiant_insertis: _insertisId, date: stateDate, ...part }, comment);
+                    const title = Object.entries(AUTRE_DOCUMENTS).reduce((prev, curr) => curr[0].includes(part.filename) ? curr[1] : prev, 'Autre');
+                    await documents.importOtherDocument(_beneficiaryId, instructionId, { id: _data.id, identifiant_insertis: _insertisId, date: stateDate, ...part }, title, comment);
                     break;
 
                 default: logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Unhandled part type ${part.type}.`, 'states.js:importStates', [ `instructions/${_data.id}.txt`, 'instructions/error.txt' ]);

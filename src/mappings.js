@@ -202,6 +202,15 @@ export const JUSTIFICATIF_TUTELLE = {
     }
 };
 
+export const AUTRE_DOCUMENTS = {
+    attestation_tcl: 'Attestation RSJ',
+    courrier_ouverture_droit: 'Ouverture de droit',
+    courrier_reponse_demande_suspension: 'Réponse suspension',
+    courrier_fin_droit_age: 'Fin de droit (âge)',
+    courrier_refus_eligibilite: 'Refus éligibilité',
+    courrier_refus_renouvellement_engagement: 'Refus renouvellement'
+};
+
 export const WORKFLOW_STATUS = {
     "just_submitted": "En création", // Demande transmise
     "new": "Analyse en cours", // Analyse en cours
@@ -229,6 +238,6 @@ export const WORKFLOW_STATUS = {
 
 export const MONTHS = [ "Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre" ];
 
-const mapping = { TYPE_JUSTIFICATIF_IDENTITE, TYPE_JUSTIFICATIF_DOMICILIATION, JUSTIFICATIF_TUTELLE, WORKFLOW_STATUS, MONTHS };
+const mapping = { TYPE_JUSTIFICATIF_IDENTITE, TYPE_JUSTIFICATIF_DOMICILIATION, JUSTIFICATIF_TUTELLE, AUTRE_DOCUMENTS, WORKFLOW_STATUS, MONTHS };
 
 export default mapping;

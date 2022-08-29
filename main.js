@@ -17,7 +17,7 @@ if (!args['skip-instructions']) {
         fs.writeFileSync(`${process.env.LOG_FOLDER}instructions/log.txt`, '');
         fs.writeFileSync(`${process.env.LOG_FOLDER}instructions/error.txt`, '');
     }
-    logger.log('Importing all instructions ...', `instructions/log.txt`, true);
+    logger.log('Importing instructions ...', `instructions/log.txt`, true);
     await importInstructions();
     logger.log('All instructions has been imported.', `instructions/log.txt`, true);
 }
@@ -30,7 +30,7 @@ if (!args['skip-payments']) {
         fs.writeFileSync(`${process.env.LOG_FOLDER}payments/log.txt`, '');
         fs.writeFileSync(`${process.env.LOG_FOLDER}payments/error.txt`, '');
     }
-    logger.log('Importing all payments ...', `payments/log.txt`, true);
+    logger.log('Importing payments ...', `payments/log.txt`, true);
     await importPayments();
     logger.log('All payments has been imported.', `payments/log.txt`, true);
 }

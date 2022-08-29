@@ -18,7 +18,7 @@ if (!args['skip-instructions']) {
         const files = fs.readdirSync(process.env.INSTRUCTION_DATA_FOLDER);
         cliBar.start(allowedInstructions ? allowedInstructions.length : files.length, 0);
         for (let i=0; i<files.length; i++) {
-            if (allowedInstructions && !allowedInstructions.includes(parseInt(files[0].split('.')[0]))) {
+            if (allowedInstructions && !allowedInstructions.includes(parseInt(files[i].split('.')[0]))) {
                 continue;
             }
             fs.unlinkSync(`${process.env.INSTRUCTION_DATA_FOLDER}${file}`);
@@ -31,20 +31,20 @@ if (!args['skip-instructions']) {
         }
     }
 
-    logger.log('Fetching all instructions ...', `instructions/log.txt`, true);
-    const instrutions = await api.fetchAll(process.env.TOODEGO_INSTRUCTION_PATH);
+    logger.log('Fetching instructions ...', `instructions/log.txt`, true);
+    const instructions = await api.fetchAll(process.env.TOODEGO_INSTRUCTION_PATH);
     cliBar.start(allowedInstructions ? allowedInstructions.length : instructions.length, 0);
-    for (let i=0; i<instrutions.length; i++) {
-        if (allowedInstructions && !allowedInstructions.includes(instrutions[i].id)) {
+    for (let i=0; i<instructions.length; i++) {
+        if (allowedInstructions && !allowedInstructions.includes(instructions[i].id)) {
             continue;
         }
-        const filename = `${process.env.INSTRUCTION_DATA_FOLDER}${instrutions[i].id}.json`;
+        const filename = `${process.env.INSTRUCTION_DATA_FOLDER}${instructions[i].id}.json`;
         if (!args['replay-instructions'] && fs.existsSync(filename)) {
             cliBar.increment();
             continue;
         }
-        logger.log(`Fetching instruction #${instrutions[i].id} ...`, `instructions/log.txt`);
-        const instruction = await api.fetchOne(process.env.TOODEGO_INSTRUCTION_PATH, instrutions[i].id);
+        logger.log(`Fetching instruction #${instructions[i].id} ...`, `instructions/log.txt`);
+        const instruction = await api.fetchOne(process.env.TOODEGO_INSTRUCTION_PATH, instructions[i].id);
         fs.writeFileSync(filename, JSON.stringify(instruction));
         cliBar.increment();
     }
@@ -60,7 +60,7 @@ if (!args['skip-payments']) {
         const files = fs.readdirSync(process.env.PAYMENT_DATA_FOLDER);
         cliBar.start(allowedPayments ? allowedPayments.length : files.length, 0);
         for(let i=0; i<files.length; i++) {
-            if (allowedPayments && !allowedPayments.includes(parseInt(files[0].split('.')[0]))) {
+            if (allowedPayments && !allowedPayments.includes(parseInt(files[i].split('.')[0]))) {
                 continue;
             }
             fs.unlinkSync(`${process.env.PAYMENT_DATA_FOLDER}${files[i]}`);
@@ -73,7 +73,7 @@ if (!args['skip-payments']) {
         }
     }
 
-    logger.log('Fetching all payments ...', `payments/log.txt`, true);
+    logger.log('Fetching payments ...', `payments/log.txt`, true);
     const payments = (await api.fetchAll(process.env.TOODEGO_PAYMENT_PATH)).data;
     cliBar.start(allowedPayments ? allowedPayments.length : payments.length, 0);
     for (let i=0; i<payments.length; i++) {

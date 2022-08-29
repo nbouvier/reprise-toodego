@@ -51,6 +51,7 @@ export async function importInstructions() {
         await documents.importNationalityDocuments(beneficiaryId, instruction);
         await documents.importDwellingDocuments(beneficiaryId, instruction);
         await documents.importTutorshipDocuments(beneficiaryId, instruction);
+        await documents.importCommitmentStatement(beneficiaryId, instruction);
 
         await rib.importRib(beneficiaryId, instruction);
         await payments.importNextPayment(beneficiaryId, instruction);

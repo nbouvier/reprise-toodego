@@ -49,13 +49,12 @@ export async function importPayments() {
             continue;
         }
 
-        let paymentDate = new Date(payment.receipt_time);
-        const lastDayPreviousMonth = new Date(paymentDate.getFullYear(), paymentDate.getMonth(), 0).toLocaleDateString('sv-SE');
-        paymentDate = paymentDate.toLocaleDateString('sv-SE');
-        let instructionId = await instructions.getClosestInstructionId(beneficiaryId, lastDayPreviousMonth);
+        const splittedMonth = payment.fields.mois_du_paiement.split('-');
+        const paymentDate = new Date(splittedMonth[1], MONTHS.indexOf(splittedMonth[0]), 5).toLocaleDateString('sv-SE');
+        let instructionId = await instructions.getClosestInstructionId(beneficiaryId, paymentDate);
         if (!instructionId) {
-            logger.warning(`Payment #${payment.id} - Beneficiary #${beneficiaryId} - Instruction not found at or before date ${lastDayPreviousMonth}.`, 'payments.js:importPayments', [ `payments/${payment.id}.txt`, 'payments/warning.txt' ]);
-            instructionId = await instructions.getClosestInstructionId(beneficiaryId, lastDayPreviousMonth, true);
+            logger.warning(`Payment #${payment.id} - Beneficiary #${beneficiaryId} - Instruction not found at or before date ${paymentDate}.`, 'payments.js:importPayments', [ `payments/${payment.id}.txt`, 'payments/warning.txt' ]);
+            instructionId = await instructions.getClosestInstructionId(beneficiaryId, paymentDate, true);
             if (!instructionId) {
                 logger.error(`Payment #${payment.id} - Beneficiary #${beneficiaryId} - No instruction found.`, 'payments.js:importPayments', [ `payments/${payment.id}.txt`, 'payments/error.txt' ]);
                 cliBar.increment();
@@ -70,8 +69,7 @@ export async function importPayments() {
             continue;
         }
 
-        const paymentData = extractPaymentData(payment);
-        const paymentId = await insert(beneficiaryRsjId, instructionId, ribId, paymentData.amount, paymentData.month, paymentData.createdAt);
+        const paymentId = await insert(beneficiaryRsjId, instructionId, ribId, payment.fields.montant_verse, paymentDate, payment.last_update_time.substr(0, 10));
         if (!paymentId) {
             logger.error(`Payment #${payment.id} - Beneficiary #${beneficiaryId} - Failed to import payment #${payments[i].id}.`, 'payments.js:importPayments', [ `payments/${payment.id}.txt`, 'payments/error.txt' ]);
         }
@@ -191,17 +189,6 @@ export async function updateNextPayments() {
     });
 
     await db.query(sql);
-}
-
-export function extractPaymentData(_data) {
-    const splittedMonth = _data.fields.mois_du_paiement.split('-');
-    const month = new Date(splittedMonth[1], MONTHS.indexOf(splittedMonth[0]), 5).toLocaleDateString('sv-SE');
-
-    return {
-        amount: _data.fields.montant_verse,
-        month: month,
-        createdAt: _data.last_update_time.substr(0, 10)
-    };
 }
 
 export async function insert(_beneficiaryRsjId, _instructionId, _ribId, _amount, _paymentMonth, _stateDate, _state = 'Réalisé') {

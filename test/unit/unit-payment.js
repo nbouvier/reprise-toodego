@@ -7,7 +7,7 @@ import db from '../../src/database/database.js';
 import sqlBuilder from '../../src/utils/sqlBuilder.js';
 
 import beneficiaries from '../../src/beneficiaries.js';
-import payments, { getSqlSelectStateId, getSqlSelectRemainingPayment, updateNextPayments, extractPaymentData, insert, insertNextPayment } from '../../src/payments.js';
+import payments, { getSqlSelectStateId, getSqlSelectRemainingPayment, updateNextPayments, insert, insertNextPayment } from '../../src/payments.js';
 
 describe('payments.js', function() {
 
@@ -73,19 +73,6 @@ describe('payments.js', function() {
                 _where: [ `"id" IN (${nextPaymentIds.join(', ')})` ]
             });
             await db.query(sql);
-        });
-    });
-
-    describe('#extractPaymentData()', function() {
-        it('should return extracted data', async function() {
-            const data = {
-                fields: {
-                    montant_verse: 400,
-                    mois_du_paiement: 'Juillet-2022'
-                },
-                last_update_time: '2022-07-18T00:00:00.000Z'
-            }
-            expect(extractPaymentData(data)).to.deep.equal({ amount: 400, month: '2022-07-05', createdAt: '2022-07-18' });
         });
     });
 

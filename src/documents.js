@@ -169,10 +169,24 @@ export async function importTutorshipDocuments(_beneficiaryId, _data) {
     }
 }
 
+export async function importCommitmentStatement(_beneficiaryId, _data) {
+    logger.log(`Processing commitment document ...`, `instructions/${_data.id}.txt`);
+
+    if (_data.fields.acceptation_par_le_jeune) {
+        const instructionId = await instructions.getClosestInstructionId(_beneficiaryId, '1900-01-01', true);
+        if (!instructionId) {
+            logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - No instruction found.`, 'documents.js:importCommitmentStatement', [ `instructions/${_data.id}.txt`, `instructions/error.txt` ]);
+            return;
+        }
+        const date = new Date().toLocaleDateString('sv-SE');
+        await documents.importOtherDocument(_beneficiaryId, instructionId, { id: _data.id, date: date, identifiant_insertis: _data.fields.identifiant_insertis, ..._data.fields.acceptation_par_le_jeune }, 'Autre'/* 'Déclaration d'engagement' */);
+    }
+}
+
 // Import other document
 // Update instruction data
-export async function importOtherDocument(_beneficiaryId, _instrutionId, _data, _comment) {
-    logger.log(`Importing other document ${_data.filename} ...`, `instructions/${_data.id}.txt`);
+export async function importOtherDocument(_beneficiaryId, _instrutionId, _data, _title='Autre', _comment='') {
+    logger.log(`Importing other document "${_title}" (${_data.filename}) ...`, `instructions/${_data.id}.txt`);
 
     const userId = await users.getId('insertis@grandlyon.com');
     if (!userId) {
@@ -181,10 +195,10 @@ export async function importOtherDocument(_beneficiaryId, _instrutionId, _data, 
     }
 
     const documentId = await insert({
-      _title: 'Autre',
+      _title: _title,
       _importDate: _data.date,
       _userId: userId,
-      _fileName: 'autre',
+      _fileName: _data.filename.split('.')[0],
       _fileType: _data.filename.split('.').pop(),
       _insertisId: _data.identifiant_insertis,
       _beneficiaryId: _beneficiaryId,
@@ -224,6 +238,6 @@ export async function insert({ _title, _importDate, _userId, _fileName, _fileTyp
     return res[1].rows[0].id;
 }
 
-const documents = { importNationalityDocuments, importDwellingDocuments, importBankingDocument, importTutorshipDocuments, importOtherDocument };
+const documents = { importNationalityDocuments, importDwellingDocuments, importBankingDocument, importTutorshipDocuments, importCommitmentStatement, importOtherDocument };
 
 export default documents;
