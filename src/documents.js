@@ -1,5 +1,7 @@
 import db from './database/database.js';
 
+import { instructionsLogFolder, errorFile } from '../config/config.js';
+
 import logger from './utils/logger.js';
 import { encrypt } from './utils/encryption.js';
 import sqlBuilder from './utils/sqlBuilder.js';
@@ -15,20 +17,20 @@ export async function importNationalityDocuments(_beneficiaryId, _data) {
     const nationalityMapping = TYPE_JUSTIFICATIF_IDENTITE[_data.fields.nationalite_raw];
     const mapping = nationalityMapping.values[_data.fields[nationalityMapping.field]];
     if (!mapping) {
-        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Nationality mapping not found : ${_data.fields.nationalite_raw} / ${_data.fields[nationalityMapping.field]}.`, 'documents.js:importNationalityDocuments', [ `instructions/${_data.id}.txt`, `instructions/error.txt` ]);
+        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Nationality mapping not found : ${_data.fields.nationalite_raw} / ${_data.fields[nationalityMapping.field]}.`, 'documents.js:importNationalityDocuments', [ `${instructionsLogFolder}${_data.id}.txt`, `${instructionsLogFolder}${errorFile}` ]);
         return;
     }
 
     const userId = await users.getId('insertis@grandlyon.com');
     if (!userId) {
-        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - User not found with email insertis@grandlyon.com.`, 'documents.js:importNationalityDocuments', [ `instructions/${_data.id}.txt`, `instructions/error.txt` ]);
+        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - User not found with email insertis@grandlyon.com.`, 'documents.js:importNationalityDocuments', [ `${instructionsLogFolder}${_data.id}.txt`, `${instructionsLogFolder}${errorFile}` ]);
         return;
     }
 
     var documents = {};
-    logger.log(`Processing nationality documents ...`, `instructions/${_data.id}.txt`);
+    logger.log(`Processing nationality documents ...`, `${instructionsLogFolder}${_data.id}.txt`);
     for (let i=0; i<mapping.toodego.fileVar.length; i++) {
-        logger.log(`Importing document "${mapping.insertis.fileTitle[i]}" ...`, `instructions/${_data.id}.txt`);
+        logger.log(`Importing document "${mapping.insertis.fileTitle[i]}" ...`, `${instructionsLogFolder}${_data.id}.txt`);
         const documentData = _data.fields[mapping.toodego.fileVar[i]];
 
         documents[mapping.insertis.fileVar[i]] = await insert({
@@ -42,7 +44,7 @@ export async function importNationalityDocuments(_beneficiaryId, _data) {
         });
     }
 
-    logger.log(`Updating instructions ...`, `instructions/${_data.id}.txt`);
+    logger.log(`Updating instructions ...`, `${instructionsLogFolder}${_data.id}.txt`);
     const instructionIds = await instructions.getAllIds(_beneficiaryId);
     if (instructionIds.length) {
         let dates = [];
@@ -55,7 +57,7 @@ export async function importNationalityDocuments(_beneficiaryId, _data) {
 
         await instructions.updateAfterNationalityDocuments(instructionIds, mapping.insertis.value, documents, dates);
     } else {
-        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - No instruction found.`, 'documents.js:importNationalityDocuments', [ `instructions/${_data.id}.txt`, `instructions/error.txt` ]);
+        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - No instruction found.`, 'documents.js:importNationalityDocuments', [ `${instructionsLogFolder}${_data.id}.txt`, `${instructionsLogFolder}${errorFile}` ]);
     }
 }
 
@@ -64,20 +66,20 @@ export async function importNationalityDocuments(_beneficiaryId, _data) {
 export async function importDwellingDocuments(_beneficiaryId, _data) {
     const mapping = TYPE_JUSTIFICATIF_DOMICILIATION[_data.fields.hebergement_raw];
     if (!mapping) {
-        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Dwelling mapping not found for beneficiary : ${_data.fields.hebergement_raw}.`, 'documents.js:importNationalityDocuments', [ `instructions/${_data.id}.txt`, `instructions/error.txt` ]);
+        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Dwelling mapping not found for beneficiary : ${_data.fields.hebergement_raw}.`, 'documents.js:importNationalityDocuments', [ `${instructionsLogFolder}${_data.id}.txt`, `${instructionsLogFolder}${errorFile}` ]);
         return;
     }
 
     const userId = await users.getId('insertis@grandlyon.com');
     if (!userId) {
-        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - User not found with email insertis@grandlyon.com.`, 'documents.js:importDwellingDocuments', [ `instructions/${_data.id}.txt`, `instructions/error.txt` ]);
+        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - User not found with email insertis@grandlyon.com.`, 'documents.js:importDwellingDocuments', [ `${instructionsLogFolder}${_data.id}.txt`, `${instructionsLogFolder}${errorFile}` ]);
         return;
     }
 
     var documents = {};
-    logger.log(`Processing dwelling documents ...`, `instructions/${_data.id}.txt`);
+    logger.log(`Processing dwelling documents ...`, `${instructionsLogFolder}${_data.id}.txt`);
     for (let i=0; i<mapping.toodego.fileVar.length; i++) {
-        logger.log(`Importing document "${mapping.insertis.fileTitle[i]}" ...`, `instructions/${_data.id}.txt`);
+        logger.log(`Importing document "${mapping.insertis.fileTitle[i]}" ...`, `${instructionsLogFolder}${_data.id}.txt`);
         const documentData = _data.fields[mapping.toodego.fileVar[i]];
 
         if (documentData) {
@@ -93,13 +95,13 @@ export async function importDwellingDocuments(_beneficiaryId, _data) {
         }
     }
 
-    logger.log(`Updating instructions ...`, `instructions/${_data.id}.txt`);
+    logger.log(`Updating instructions ...`, `${instructionsLogFolder}${_data.id}.txt`);
     if (documents.length) {
         const instructionIds = await instructions.getAllIds(_beneficiaryId);
         if (instructionIds.length) {
             await instructions.updateAfterDwellingDocuments(instructionIds, documents);
         } else {
-            logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - No instruction found.`, 'documents.js:importDwellingDocuments', [ `instructions/${_data.id}.txt`, `instructions/error.txt` ]);
+            logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - No instruction found.`, 'documents.js:importDwellingDocuments', [ `${instructionsLogFolder}${_data.id}.txt`, `${instructionsLogFolder}${errorFile}` ]);
         }
     }
     await beneficiaries.updateResidentialStatus(_beneficiaryId, mapping.insertis.value);
@@ -109,7 +111,7 @@ export async function importDwellingDocuments(_beneficiaryId, _data) {
 export async function importBankingDocument(_beneficiaryId, _data) {
     const userId = await users.getId('insertis@grandlyon.com');
     if (!userId) {
-        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - User not found with email insertis@grandlyon.com.`, 'documents.js:importBankingDocument', [ `instructions/${_data.id}.txt`, `instructions/error.txt` ]);
+        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - User not found with email insertis@grandlyon.com.`, 'documents.js:importBankingDocument', [ `${instructionsLogFolder}${_data.id}.txt`, `${instructionsLogFolder}${errorFile}` ]);
         return;
     }
 
@@ -127,7 +129,7 @@ export async function importBankingDocument(_beneficiaryId, _data) {
 // Import tutorship documents
 // Update instructions data
 export async function importTutorshipDocuments(_beneficiaryId, _data) {
-    logger.log(`Processing tutorship documents ...`, `instructions/${_data.id}.txt`);
+    logger.log(`Processing tutorship documents ...`, `${instructionsLogFolder}${_data.id}.txt`);
 
     var documents = {};
     const tutorship = _data.fields.jeune_sous_tutelle_raw == "Oui";
@@ -136,13 +138,13 @@ export async function importTutorshipDocuments(_beneficiaryId, _data) {
 
         const userId = await users.getId('insertis@grandlyon.com');
         if (!userId) {
-            logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - User not found with email insertis@grandlyon.com.`, 'documents.js:importTutorshipDocuments', [ `instructions/${_data.id}.txt`, `instructions/error.txt` ]);
+            logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - User not found with email insertis@grandlyon.com.`, 'documents.js:importTutorshipDocuments', [ `${instructionsLogFolder}${_data.id}.txt`, `${instructionsLogFolder}${errorFile}` ]);
             return;
         }
 
         if (_data.fields.jeune_sous_tutelle_raw) {
             for (let i=0; i<mapping.toodego.fileVar.length; i++) {
-                logger.log(`Importing document "${mapping.insertis.fileTitle[i]}" ...`, `instructions/${_data.id}.txt`);
+                logger.log(`Importing document "${mapping.insertis.fileTitle[i]}" ...`, `${instructionsLogFolder}${_data.id}.txt`);
                 const documentData = _data.fields[mapping.toodego.fileVar[i]];
 
                 if (documentData) {
@@ -160,37 +162,37 @@ export async function importTutorshipDocuments(_beneficiaryId, _data) {
         }
     }
 
-    logger.log(`Updating instructions ...`, `instructions/${_data.id}.txt`);
+    logger.log(`Updating instructions ...`, `${instructionsLogFolder}${_data.id}.txt`);
     const instructionIds = await instructions.getAllIds(_beneficiaryId);
     if (instructionIds.length) {
         await instructions.updateAfterTutorshipDocuments(instructionIds, tutorship, documents);
     } else {
-        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - No instruction found.`, 'documents.js:importTutorshipDocuments', [ `instructions/${_data.id}.txt`, `instructions/error.txt` ]);
+        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - No instruction found.`, 'documents.js:importTutorshipDocuments', [ `${instructionsLogFolder}${_data.id}.txt`, `${instructionsLogFolder}${errorFile}` ]);
     }
 }
 
 export async function importCommitmentStatement(_beneficiaryId, _data) {
-    logger.log(`Processing commitment document ...`, `instructions/${_data.id}.txt`);
+    logger.log(`Processing commitment document ...`, `${instructionsLogFolder}${_data.id}.txt`);
 
     if (_data.fields.acceptation_par_le_jeune) {
         const instructionId = await instructions.getClosestInstructionId(_beneficiaryId, '1900-01-01', true);
         if (!instructionId) {
-            logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - No instruction found.`, 'documents.js:importCommitmentStatement', [ `instructions/${_data.id}.txt`, `instructions/error.txt` ]);
+            logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - No instruction found.`, 'documents.js:importCommitmentStatement', [ `${instructionsLogFolder}${_data.id}.txt`, `${instructionsLogFolder}${errorFile}` ]);
             return;
         }
         const date = new Date().toLocaleDateString('sv-SE');
-        await documents.importOtherDocument(_beneficiaryId, instructionId, { id: _data.id, date: date, identifiant_insertis: _data.fields.identifiant_insertis, ..._data.fields.acceptation_par_le_jeune }, 'Autre'/* 'Déclaration d'engagement' */);
+        await documents.importOtherDocument(_beneficiaryId, instructionId, { id: _data.id, date: date, identifiant_insertis: _data.fields.identifiant_insertis, ..._data.fields.acceptation_par_le_jeune }, 'Déclaration d\'engagement');
     }
 }
 
 // Import other document
 // Update instruction data
 export async function importOtherDocument(_beneficiaryId, _instrutionId, _data, _title='Autre', _comment='') {
-    logger.log(`Importing other document "${_title}" (${_data.filename}) ...`, `instructions/${_data.id}.txt`);
+    logger.log(`Importing other document "${_title}" (${_data.filename}) ...`, `${instructionsLogFolder}${_data.id}.txt`);
 
     const userId = await users.getId('insertis@grandlyon.com');
     if (!userId) {
-        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - User not found with email insertis@grandlyon.com.`, 'documents.js:importOtherDocument', [ `instructions/${_data.id}.txt`, `instructions/error.txt` ]);
+        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - User not found with email insertis@grandlyon.com.`, 'documents.js:importOtherDocument', [ `${instructionsLogFolder}${_data.id}.txt`, `${instructionsLogFolder}${errorFile}` ]);
         return;
     }
 
@@ -205,11 +207,11 @@ export async function importOtherDocument(_beneficiaryId, _instrutionId, _data, 
       _data: _data.content
     });
     if (!documentId) {
-        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Failed to import document.`, 'documents.js:importOtherDocument', [ `instructions/${_data.id}.txt`, `instructions/error.txt` ]);
+        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Failed to import document.`, 'documents.js:importOtherDocument', [ `${instructionsLogFolder}${_data.id}.txt`, `${instructionsLogFolder}${errorFile}` ]);
         return;
     }
 
-    logger.log('Updating instruction ...', `instructions/${_data.id}.txt`);
+    logger.log('Updating instruction ...', `${instructionsLogFolder}${_data.id}.txt`);
     await instructions.insertOtherDocument(_instrutionId, documentId, _comment);
 }
 

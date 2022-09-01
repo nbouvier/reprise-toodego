@@ -3,6 +3,8 @@ import minimist from 'minimist';
 const args = minimist(process.argv.slice(2));
 import cliProgress from 'cli-progress';
 
+import { paymentsDataFolder, paymentsLogFolder, logFile, warningFile, errorFile } from '../config/config.js';
+
 import db from './database/database.js';
 
 import api from './utils/api.js';
@@ -18,33 +20,33 @@ import { MONTHS } from './mappings.js';
 // Update remainingPayment
 export async function importPayments() {
     const allowedPayments = args.payments ? JSON.parse(args.payments) : null;
-    const payments = fs.readdirSync(process.env.PAYMENT_DATA_FOLDER);
+    const payments = fs.readdirSync(paymentsDataFolder);
     const cliBar = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
     cliBar.start(allowedPayments ? allowedPayments.length : payments.length, 0);
     for (let i=0; i<payments.length; i++) {
-        const payment = JSON.parse(fs.readFileSync(`${process.env.PAYMENT_DATA_FOLDER}${payments[i]}`, 'utf8'));
+        const payment = JSON.parse(fs.readFileSync(`${paymentsDataFolder}${payments[i]}`, 'utf8'));
 
         if (allowedPayments && !allowedPayments.includes(parseInt(payment.id))) {
             continue;
         }
-        if (!args['replay-payments'] && fs.existsSync(`${process.env.LOG_FOLDER}payments/${payment.id}.txt`)) {
+        if (!args['replay-payments'] && fs.existsSync(`${paymentsLogFolder}${payment.id}.txt`)) {
             cliBar.increment();
             continue;
         }
 
-        logger.log(`Importing payment #${payment.id} ...`, [ `payments/${payment.id}.txt`, 'payments/log.txt' ]);
+        logger.log(`Importing payment #${payment.id} ...`, [ `${paymentsLogFolder}${payment.id}.txt`, `${paymentsLogFolder}${logFile}` ]);
         const insertisId = payment.fields.identifiant_insertis;
 
         const beneficiaryId = await beneficiaries.getId(insertisId);
         if (!beneficiaryId) {
-            logger.error(`Payment #${payment.id} - Beneficiary #${insertisId} - Beneficiary not found.`, 'payments.js:importPayments', [ `payments/${payment.id}.txt`, 'payments/error.txt' ]);
+            logger.error(`Payment #${payment.id} - Beneficiary #${insertisId} - Beneficiary not found.`, 'payments.js:importPayments', [ `${paymentsLogFolder}${payment.id}.txt`, `${paymentsLogFolder}${errorFile}` ]);
             cliBar.increment();
             continue;
         }
 
         const beneficiaryRsjId = await beneficiaries.getRsjId(insertisId);
         if (!beneficiaryRsjId) {
-            logger.error(`Payment #${payment.id} - Beneficiary #${insertisId} - BeneficiaryRsj not found.`, 'payments.js:importPayments', [ `payments/${payment.id}.txt`, 'payments/error.txt' ]);
+            logger.error(`Payment #${payment.id} - Beneficiary #${insertisId} - BeneficiaryRsj not found.`, 'payments.js:importPayments', [ `${paymentsLogFolder}${payment.id}.txt`, `${paymentsLogFolder}${errorFile}` ]);
             cliBar.increment();
             continue;
         }
@@ -53,10 +55,10 @@ export async function importPayments() {
         const paymentDate = new Date(splittedMonth[1], MONTHS.indexOf(splittedMonth[0]), 5).toLocaleDateString('sv-SE');
         let instructionId = await instructions.getClosestInstructionId(beneficiaryId, paymentDate);
         if (!instructionId) {
-            logger.warning(`Payment #${payment.id} - Beneficiary #${beneficiaryId} - Instruction not found at or before date ${paymentDate}.`, 'payments.js:importPayments', [ `payments/${payment.id}.txt`, 'payments/warning.txt' ]);
+            logger.warning(`Payment #${payment.id} - Beneficiary #${beneficiaryId} - Instruction not found at or before date ${paymentDate}.`, 'payments.js:importPayments', [ `${paymentsLogFolder}${payment.id}.txt`, `${paymentsLogFolder}${warningFile}` ]);
             instructionId = await instructions.getClosestInstructionId(beneficiaryId, paymentDate, true);
             if (!instructionId) {
-                logger.error(`Payment #${payment.id} - Beneficiary #${beneficiaryId} - No instruction found.`, 'payments.js:importPayments', [ `payments/${payment.id}.txt`, 'payments/error.txt' ]);
+                logger.error(`Payment #${payment.id} - Beneficiary #${beneficiaryId} - No instruction found.`, 'payments.js:importPayments', [ `${paymentsLogFolder}${payment.id}.txt`, `${paymentsLogFolder}${errorFile}` ]);
                 cliBar.increment();
                 continue;
             }
@@ -64,40 +66,26 @@ export async function importPayments() {
 
         const ribId = await beneficiaries.getRibId(beneficiaryRsjId);
         if (!ribId) {
-            logger.error(`Payment #${payment.id} - Beneficiary #${beneficiaryId} - RIB not found.`, 'payments.js:importPayments', [ `payments/${payment.id}.txt`, 'payments/error.txt' ]);
+            logger.error(`Payment #${payment.id} - Beneficiary #${beneficiaryId} - RIB not found.`, 'payments.js:importPayments', [ `${paymentsLogFolder}${payment.id}.txt`, `${paymentsLogFolder}${errorFile}` ]);
             cliBar.increment();
             continue;
         }
 
         const paymentId = await insert(beneficiaryRsjId, instructionId, ribId, payment.fields.montant_verse, paymentDate, payment.last_update_time.substr(0, 10));
         if (!paymentId) {
-            logger.error(`Payment #${payment.id} - Beneficiary #${beneficiaryId} - Failed to import payment #${payments[i].id}.`, 'payments.js:importPayments', [ `payments/${payment.id}.txt`, 'payments/error.txt' ]);
+            logger.error(`Payment #${payment.id} - Beneficiary #${beneficiaryId} - Failed to import payment #${payments[i].id}.`, 'payments.js:importPayments', [ `${paymentsLogFolder}${payment.id}.txt`, `${paymentsLogFolder}${errorFile}` ]);
         }
-        logger.log(`Updating rib ...`, `payments/${payment.id}.txt`);
+        logger.log(`Updating rib ...`, `${paymentsLogFolder}${payment.id}.txt`);
         await rib.updateBeginDate(beneficiaryId, paymentDate);
 
         cliBar.increment();
     }
     cliBar.stop();
 
+    logger.log('Updating remaining payments ...', `${paymentsLogFolder}${logFile}`, true);
+    await beneficiaries.updateRemainingPayments();
+
     await importNextPaymentData();
-
-    logger.log('Updating next payments ...', `payments/log.txt`, true);
-    await updateNextPayments();
-}
-
-// Create next payment row
-// Update beneficiary data
-export async function importNextPayment(_beneficiaryId, _data) {
-    logger.log('Creating next payment ...', `instructions/${_data.id}.txt`);
-    const nextPaymentId = await insertNextPayment();
-    if (!nextPaymentId) {
-        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Failed to create next payment.`, 'payments.js:importNextPayment', [ `payments/${_data.id}.txt`, 'payments/error.txt' ]);
-        return;
-    }
-
-    logger.log('Updating beneficiary rsj ...', `instructions/${_data.id}.txt`);
-    await beneficiaries.updateNextPaymentId(_beneficiaryId, nextPaymentId);
 }
 
 // For each beneficiary
@@ -106,7 +94,7 @@ export async function importNextPayment(_beneficiaryId, _data) {
 // To get those with linked payments < imported payments
 // Create missing payments
 export async function importNextPaymentData() {
-    logger.log('Creating planned payments ...', `payments/log.txt`, true);
+    logger.log('Creating planned payments ...', `${paymentsLogFolder}${logFile}`, true);
 
     const sql = sqlBuilder.getSelect({
         _select: [
@@ -148,14 +136,14 @@ export async function importNextPaymentData() {
     const date = new Date();
     for (let i=0; i<res.rows.length; i++) {
         let row = res.rows[i];
-        logger.log(`Creating ${row.missingPayments} payments of ${row.paymentAmount}€ for beneficiary #${row.beneficiaryId}`, `payments/log.txt`);
+        logger.log(`Creating ${row.missingPayments} payments of ${row.paymentAmount}€ for beneficiary #${row.beneficiaryId}`, `${paymentsLogFolder}${logFile}`);
         for (let j=0; j<parseInt(row.missingPayments); j++) {
             const state = j ? 'Prévu' : 'Réalisé';
             const month = new Date(date.getFullYear(), date.getMonth()+j, 5).toLocaleDateString('sv-SE');
-            logger.log(`Payment of ${month} (${state})`, `payments/log.txt`);
+            logger.log(`Payment of ${month} (${state})`, `${paymentsLogFolder}${logFile}`);
             const paymentId = await insert(row.beneficiaryRsjId, row.instructionId, row.paymentDataId, row.paymentAmount, month, date.toLocaleDateString('sv-SE'), state);
             if (!paymentId) {
-                logger.error(`Beneficiary #${row.beneficiaryId} - Failed to create payment at month ${month}.`, 'payments.js:importNextPaymentData', [ `payments/log.txt`, `payments/error.txt` ]);
+                logger.error(`Beneficiary #${row.beneficiaryId} - Failed to create payment at month ${month}.`, 'payments.js:importNextPaymentData', [ `${paymentsLogFolder}${logFile}`, `${paymentsLogFolder}${errorFile}` ]);
             }
         }
     }
@@ -172,23 +160,12 @@ export function getSqlSelectStateId(_state) {
 
 export function getSqlSelectRemainingPayment() {
     return sqlBuilder.getSelect({
-        _select: [ 'rp."beneficiaryRsjId"', 'COUNT(*) AS "count"', `MIN(rp."paymentMonth") FILTER (WHERE rpd."label" = 'Prévu') AS "nextMonth"`, `MIN(rp."amount") FILTER (WHERE rpd."label" = 'Prévu') AS "nextAmount"` ],
-        _from: [ '"rsj_payment" rp' ],
-        _join: [ { _table: '"rsj_payment_state"', _as: 'rpd', _on: [ 'rpd."id" = rp."stateId"' ] } ],
+        _select: [ 'rp."beneficiaryRsjId"', 'COUNT(*) AS "totalPayments"' ],
+        _from: [ '"rsj_payment" rp', '"rsj_payment_state" rpd' ],
+        _where: [ 'rpd."id" = rp."stateId"' ],
         _groupBy: [ 'rp."beneficiaryRsjId"' ],
         _subquery: true
     });
-}
-
-export async function updateNextPayments() {
-    const sql = sqlBuilder.getUpdate({
-        _update: '"rsj_next_payment" np',
-        _set: [ `"remainingPayment" = 24 - c."count"`, '"nextPayment" = c."nextMonth"', '"nextAmount" = c."nextAmount"' ],
-        _from: [ '"beneficiary_rsj" brsj', `${getSqlSelectRemainingPayment()} c` ],
-        _where: [ 'brsj."id" = c."beneficiaryRsjId"', 'np."id" = brsj."nextPaymentId"' ]
-    });
-
-    await db.query(sql);
 }
 
 export async function insert(_beneficiaryRsjId, _instructionId, _ribId, _amount, _paymentMonth, _stateDate, _state = 'Réalisé') {
@@ -204,17 +181,6 @@ export async function insert(_beneficiaryRsjId, _instructionId, _ribId, _amount,
     return res[1].rows[0].id;
 }
 
-export async function insertNextPayment() {
-    const sql = sqlBuilder.getInsert({
-        _insert: [ '"remainingPayment"' ],
-        _into: '"rsj_next_payment"',
-        _values: [ [ '24' ] ]
-    });
-
-    const res = await db.query(sql);
-    return res[1].rows[0].id;
-}
-
-const payments = { importPayments, importNextPayment };
+const payments = { importPayments, getSqlSelectRemainingPayment };
 
 export default payments;

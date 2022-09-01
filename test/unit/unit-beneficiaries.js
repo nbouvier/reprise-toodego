@@ -105,27 +105,39 @@ describe('beneficiaries.js', function() {
         });
     });
 
-    describe('#updateNextPaymentId()', function() {
-        let row;
+    describe('#updateRemainingPayments()', function() {
+        let rows;
+        let beneficiaryIds;
+        let nextPaymentIds;
 
-        beforeEach(async function() {
-            await beneficiaries.updateNextPaymentId(1, 1);
+        before(async function() {
+            beneficiaryIds = [ 1, 2, 4 ];
+
+            await beneficiaries.updateRemainingPayments();
 
             const sql = sqlBuilder.getSelect({
-                _select: [ '"nextPaymentId"' ],
+                _select: [ '"id" AS "beneficiaryRsjId"', '"remainingPayment"' ],
                 _from: [ '"beneficiary_rsj"' ],
-                _where: [ '"beneficiaryId" = 1' ]
+                _where: [ `"beneficiaryId" IN (${beneficiaryIds.join(', ')})` ]
             });
             const res = await db.query(sql);
-            row = res.rows[0];
+            rows = res.rows;
         });
 
-        it('should update beneficiary_rsj.nextPaymentId', async function() {
-            expect(row.nextPaymentId).to.equal(1);
+        it('should update beneficiary_rsj.remainingPayment', async function() {
+            let data = { 1: 22, 2: 24, 3: 23 };
+            for(let i=0; i<beneficiaryIds.length; i++) {
+                expect(rows[i].remainingPayment).to.equal(data[rows[i].beneficiaryRsjId]);
+            }
         });
 
-        afterEach(async function() {
-            await beneficiaries.updateNextPaymentId(1, null);
+        after(async function() {
+            const sql = sqlBuilder.getUpdate({
+                _update: [ '"beneficiary_rsj"' ],
+                _set: [ '"remainingPayment" = 24' ],
+                _where: [ `"id" IN (${beneficiaryIds.join(', ')})` ]
+            });
+            await db.query(sql);
         });
     });
 
@@ -213,7 +225,12 @@ describe('beneficiaries.js', function() {
         });
 
         afterEach(async function() {
-            await beneficiaries.updateNextPaymentId(1, null);
+            const sql = sqlBuilder.getUpdate({
+                _update: [ '"beneficiary_rsj"' ],
+                _set: [ '"stateId" = 7', '"rsjEndDate" = null' ],
+                _where: [ '"beneficiaryId" = 1' ]
+            });
+            const res = await db.query(sql);
         });
     });
 

@@ -3,6 +3,8 @@ import minimist from 'minimist';
 const args = minimist(process.argv.slice(2));
 import cliProgress from 'cli-progress';
 
+import { instructionsDataFolder, instructionsLogFolder, logFile, errorFile } from '../config/config.js';
+
 import db from './database/database.js';
 
 import api from './utils/api.js';
@@ -11,7 +13,6 @@ import sqlBuilder from './utils/sqlBuilder.js';
 
 import beneficiaries from './beneficiaries.js';
 import rib from './rib.js';
-import payments from './payments.js';
 import documents from './documents.js';
 import states from './states.js';
 
@@ -22,26 +23,26 @@ import states from './states.js';
 // Import states
 export async function importInstructions() {
     const allowedInstructions = args.instructions ? JSON.parse(args.instructions) : null;
-    const instructions = fs.readdirSync(process.env.INSTRUCTION_DATA_FOLDER);
+    const instructions = fs.readdirSync(instructionsDataFolder);
     const cliBar = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
     cliBar.start(allowedInstructions ? allowedInstructions.length : instructions.length, 0);
     for (let i=0; i<instructions.length; i++) {
-        const instruction = JSON.parse(fs.readFileSync(`${process.env.INSTRUCTION_DATA_FOLDER}${instructions[i]}`, 'utf8'));
+        const instruction = JSON.parse(fs.readFileSync(`${instructionsDataFolder}${instructions[i]}`, 'utf8'));
 
         if (allowedInstructions && !allowedInstructions.includes(parseInt(instruction.id))) {
             continue;
         }
-        if (!args['replay-instructions'] && fs.existsSync(`${process.env.LOG_FOLDER}instructions/${instruction.id}.txt`)) {
+        if (!args['replay-instructions'] && fs.existsSync(`${instructionsLogFolder}${instruction.id}.txt`)) {
             cliBar.increment();
             continue;
         }
 
         const insertisId = instruction.fields.identifiant_insertis;
-        logger.log(`Importing instruction #${instruction.id} for beneficiary #${insertisId} ...`, [ `instructions/${instruction.id}.txt`, `instructions/log.txt` ]);
+        logger.log(`Importing instruction #${instruction.id} for beneficiary #${insertisId} ...`, [ `${instructionsLogFolder}${instruction.id}.txt`, `${instructionsLogFolder}${logFile}` ]);
 
         const beneficiaryId = await beneficiaries.getId(insertisId);
         if (!beneficiaryId) {
-            logger.error(`Instruction #${instruction.id} - Beneficiary #${insertisId} - Beneficiary not found.`, 'instructions.js:importInstructions', [ `instructions/${instruction.id}.txt`, `instructions/error.txt` ]);
+            logger.error(`Instruction #${instruction.id} - Beneficiary #${insertisId} - Beneficiary not found.`, 'instructions.js:importInstructions', [ `${instructionsLogFolder}${instruction.id}.txt`, `${instructionsLogFolder}${errorFile}` ]);
             cliBar.increment();
             continue;
         }
@@ -54,7 +55,6 @@ export async function importInstructions() {
         await documents.importCommitmentStatement(beneficiaryId, instruction);
 
         await rib.importRib(beneficiaryId, instruction);
-        await payments.importNextPayment(beneficiaryId, instruction);
 
         await states.importStates(beneficiaryId, insertisId, instruction);
 
@@ -64,7 +64,7 @@ export async function importInstructions() {
     }
     cliBar.stop();
 
-    logger.log('Updating rsj folder status ...', `instructions/log.txt`, true);
+    logger.log('Updating rsj folder status ...', `${instructionsLogFolder}${logFile}`, true);
     beneficiaries.closeAllowancesForAge()
 }
 
@@ -83,8 +83,8 @@ export function getSqlSelectInstructionExpectedPayments() {
             '"id" AS "instructionRsjId"',
             sqlBuilder.getCase({
                 _cases: [
-                    { _when: '"paymentCounterProposal" = false', _then: 'SUBSTRING("paymentDuration" FROM 1 FOR 1)::INTEGER' },
-                    { _when: '"paymentCounterProposal" = true', _then: 'SUBSTRING("paymentCounterDuration" FROM 1 FOR 1)::INTEGER' }
+                    { _when: '"paymentCounterProposal" = false', _then: '"paymentDuration"' },
+                    { _when: '"paymentCounterProposal" = true', _then: '"paymentCounterDuration"' }
                 ],
                 _as: '"expectedNumberOfPayments"'
             })
@@ -181,7 +181,7 @@ export async function updateAfterTutorshipDocuments(_instructionIds, _tutorship,
 export async function updatePaymentDecision(_instructionId, _amount, _months, _comment) {
     const sql = sqlBuilder.getUpdate({
         _update: '"instruction_rsj"',
-        _set: [ `"paymentAmount" = ${_amount}`, `"paymentDuration" = '${_months} mois'`, `"paymentOpinion" = ${sqlBuilder.parseString(_comment)}`, `"paymentCounterProposal" = false` ],
+        _set: [ `"paymentAmount" = ${_amount}`, `"paymentDuration" = ${_months}`, `"paymentOpinion" = ${sqlBuilder.parseString(_comment)}`, `"paymentCounterProposal" = false` ],
         _where: [ `"id" = ${_instructionId}` ]
     });
 
@@ -191,7 +191,7 @@ export async function updatePaymentDecision(_instructionId, _amount, _months, _c
 export async function updatePaymentCounterDecision(_instructionId, _amount, _months, _comment) {
     const sql = sqlBuilder.getUpdate({
         _update: '"instruction_rsj"',
-        _set: [ `"paymentCounterProposal" = true`, `"paymentCounterAmount"  = ${_amount}`, `"paymentCounterDuration" = '${_months} mois'`, `"paymentCounterComment"  = ${sqlBuilder.parseString(_comment)}` ],
+        _set: [ `"paymentCounterProposal" = true`, `"paymentCounterAmount"  = ${_amount}`, `"paymentCounterDuration" = ${_months}`, `"paymentCounterComment"  = ${sqlBuilder.parseString(_comment)}` ],
         _where: [ `"id" = ${_instructionId}` ]
     });
 
@@ -212,12 +212,12 @@ export async function updateStates() {
 }
 
 export async function updateComment(_beneficiaryId, _data) {
-    logger.log(`Saving payment decision in DIE comment ...`, `instructions/${_data.id}.txt`);
+    logger.log(`Saving payment decision in DIE comment ...`, `${instructionsLogFolder}${_data.id}.txt`);
 
     const dateEn = new Date().toLocaleDateString('sv-SE');
     const instructionId = await getClosestInstructionId(_beneficiaryId, dateEn);
     if (!instructionId) {
-        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - No instruction found.`, 'instructions.js:insertComment', [ `instructions/${_data.id}.txt`, `instructions/error.txt` ]);
+        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - No instruction found.`, 'instructions.js:insertComment', [ `${instructionsLogFolder}${_data.id}.txt`, `${instructionsLogFolder}${errorFile}` ]);
         return;
     }
 

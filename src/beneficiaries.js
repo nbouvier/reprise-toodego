@@ -1,11 +1,15 @@
 import db from './database/database.js';
 
+import { instructionsLogFolder } from '../config/config.js';
+
 import logger from './utils/logger.js';
 import sqlBuilder from './utils/sqlBuilder.js';
 
+import payments from './payments.js';
+
 // Create RSJ folder
 export async function importRsjFolder(_beneficiaryId, _data) {
-    logger.log(`Creating RSJ folder ...`, `instructions/${_data.id}.txt`);
+    logger.log(`Creating RSJ folder ...`, `${instructionsLogFolder}${_data.id}.txt`);
     await insertBeneficiaryRsj(_beneficiaryId);
 }
 
@@ -82,11 +86,12 @@ export async function updateRibId(_beneficiaryId, _paymentDataId) {
     await db.query(sql);
 }
 
-export async function updateNextPaymentId(_beneficiaryId, _nextPaymentId) {
+export async function updateRemainingPayments() {
     const sql = sqlBuilder.getUpdate({
-        _update: [ '"beneficiary_rsj"' ],
-        _set: [ `"nextPaymentId" = ${_nextPaymentId}` ],
-        _where: [ `"beneficiaryId" = ${_beneficiaryId}` ]
+        _update: '"beneficiary_rsj" brsj',
+        _set: [ `"remainingPayment" = 24 - t."totalPayments"` ],
+        _from: [ `${payments.getSqlSelectRemainingPayment()} t` ],
+        _where: [ 'brsj."id" = t."beneficiaryRsjId"' ]
     });
 
     await db.query(sql);
@@ -135,6 +140,6 @@ export async function insertBeneficiaryRsj(_beneficiaryId) {
     return res[1].rows[0].id;
 }
 
-const beneficiaries = { importRsjFolder, getSqlSelectLastAcceptedInstructionsId, getId, getRsjId, getRibId, updateResidentialStatus, updateRibId, updateNextPaymentId, updateState, openAllowance, closeAllowancesForAge };
+const beneficiaries = { importRsjFolder, getSqlSelectLastAcceptedInstructionsId, getId, getRsjId, getRibId, updateResidentialStatus, updateRibId, updateState, updateRemainingPayments, openAllowance, closeAllowancesForAge };
 
 export default beneficiaries;

@@ -1,3 +1,5 @@
+import { instructionsLogFolder, warningFile, errorFile } from '../config/config.js';
+
 import db from './database/database.js';
 
 import logger from './utils/logger.js';
@@ -17,13 +19,13 @@ const PAYMENT_DECISION = [ 'new', 'accepted' ];
 async function importStates(_beneficiaryId, _insertisId, _data) {
     let rsjFolderState = 'Non orienté';
 
-    logger.log('Importing states ...', `instructions/${_data.id}.txt`);
+    logger.log('Importing states ...', `${instructionsLogFolder}${_data.id}.txt`);
     for (let i=0; i<_data.evolution.length; i++) {
         const stateData = _data.evolution[i];
 
         let state = WORKFLOW_STATUS[stateData.status];
         if (!state) {
-            logger.log(`Skipping state ${stateData.status} ...`, `instructions/${_data.id}.txt`);
+            logger.log(`Skipping state ${stateData.status} ...`, `${instructionsLogFolder}${_data.id}.txt`);
             continue;
         }
 
@@ -32,10 +34,10 @@ async function importStates(_beneficiaryId, _insertisId, _data) {
 
         let instructionId = await instructions.getClosestInstructionId(_beneficiaryId, instructionDate);
         if (!instructionId) {
-            logger.warning(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Instruction not found at or before date ${instructionDate}.`, 'states.js:importStates', [ `instructions/${_data.id}.txt`, 'instructions/warning.txt' ]);
+            logger.warning(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Instruction not found at or before date ${instructionDate}.`, 'states.js:importStates', [ `${instructionsLogFolder}${_data.id}.txt`, `${instructionsLogFolder}${warningFile}` ]);
             instructionId = await instructions.getClosestInstructionId(_beneficiaryId, instructionDate, true);
             if (!instructionId) {
-                logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - No instruction found.`, 'states.js:importStates', [ `instructions/${_data.id}.txt`, 'instructions/error.txt' ]);
+                logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - No instruction found.`, 'states.js:importStates', [ `${instructionsLogFolder}${_data.id}.txt`, `${instructionsLogFolder}${errorFile}` ]);
                 continue;
             }
         }
@@ -46,11 +48,11 @@ async function importStates(_beneficiaryId, _insertisId, _data) {
         }
 
         if (state == lastState || state == 'Terminée' && FINAL_STATE.includes(lastState)) {
-            logger.log(`Skipping state ${stateData.status} ...`, `instructions/${_data.id}.txt`);
+            logger.log(`Skipping state ${stateData.status} ...`, `${instructionsLogFolder}${_data.id}.txt`);
             continue;
         }
 
-        logger.log(`Importing state '${state}' ...`, `instructions/${_data.id}.txt`);
+        logger.log(`Importing state '${state}' ...`, `${instructionsLogFolder}${_data.id}.txt`);
 
         let comment = stateData.comment || '';
         for (let j=0; j<stateData.parts?.length || 0; j++) {
@@ -61,7 +63,7 @@ async function importStates(_beneficiaryId, _insertisId, _data) {
                     comment = [ comment, part.content ].join(' ');
 
                     if (PAYMENT_DECISION.includes(stateData.status)) {
-                        logger.log('Importing payment decision ...', `instructions/${_data.id}.txt`);
+                        logger.log('Importing payment decision ...', `${instructionsLogFolder}${_data.id}.txt`);
 
                         const amount = parseInt(part.content.split(/ Euros| €/)[0].split(' ').pop());
                         const months = parseInt(part.content.split(' mois')[0].split(' ').pop());
@@ -82,14 +84,14 @@ async function importStates(_beneficiaryId, _insertisId, _data) {
                     await documents.importOtherDocument(_beneficiaryId, instructionId, { id: _data.id, identifiant_insertis: _insertisId, date: stateDate, ...part }, title, comment);
                     break;
 
-                default: logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Unhandled part type ${part.type}.`, 'states.js:importStates', [ `instructions/${_data.id}.txt`, 'instructions/error.txt' ]);
+                default: logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Unhandled part type ${part.type}.`, 'states.js:importStates', [ `${instructionsLogFolder}${_data.id}.txt`, `${instructionsLogFolder}${errorFile}` ]);
             }
         }
 
         switch (state) {
             case 'Analyse en cours':
                 if (rsjFolderState == 'Non orienté') {
-                    logger.log(`Updating RSJ folder state to 'En analyse' ...`, `instructions/${_data.id}.txt`);
+                    logger.log(`Updating RSJ folder state to 'En analyse' ...`, `${instructionsLogFolder}${_data.id}.txt`);
                     beneficiaries.updateState(_beneficiaryId, 'En analyse');
                     rsjFolderState = 'En analyse';
                 }
@@ -97,11 +99,11 @@ async function importStates(_beneficiaryId, _insertisId, _data) {
 
             case 'Refusée':
                 if (rsjFolderState == 'En analyse') {
-                    logger.log(`Updating RSJ folder state to 'Refusé' ...`, `instructions/${_data.id}.txt`);
+                    logger.log(`Updating RSJ folder state to 'Refusé' ...`, `${instructionsLogFolder}${_data.id}.txt`);
                     beneficiaries.updateState(_beneficiaryId, 'Refusé');
                     rsjFolderState = 'Refusé';
                 } else if (rsjFolderState == 'Droit ouvert (sans versement)') {
-                    logger.log(`Updating RSJ folder state to 'Droit ouvert (sans versement)' ...`, `instructions/${_data.id}.txt`);
+                    logger.log(`Updating RSJ folder state to 'Droit ouvert (sans versement)' ...`, `${instructionsLogFolder}${_data.id}.txt`);
                     beneficiaries.updateState(_beneficiaryId, 'Droit ouvert (sans versement)');
                     rsjFolderState = 'Droit ouvert (sans versement)';
                 }
@@ -109,7 +111,7 @@ async function importStates(_beneficiaryId, _insertisId, _data) {
 
             case 'Acceptée':
                 if (rsjFolderState == 'En analyse') {
-                    logger.log(`Updating RSJ folder state to 'Droit ouvert (en attente de versement)' ...`, `instructions/${_data.id}.txt`);
+                    logger.log(`Updating RSJ folder state to 'Droit ouvert (en attente de versement)' ...`, `${instructionsLogFolder}${_data.id}.txt`);
                     beneficiaries.openAllowance(_beneficiaryId, stateDate);
                     rsjFolderState = 'Droit ouvert (en attente de versement)';
                 }
@@ -117,7 +119,7 @@ async function importStates(_beneficiaryId, _insertisId, _data) {
 
             case 'Versement en cours':
                 if (rsjFolderState == 'Droit ouvert (en attente de versement)') {
-                    logger.log(`Updating RSJ folder state to 'Droit ouvert (avec versement)' ...`, `instructions/${_data.id}.txt`);
+                    logger.log(`Updating RSJ folder state to 'Droit ouvert (avec versement)' ...`, `${instructionsLogFolder}${_data.id}.txt`);
                     beneficiaries.updateState(_beneficiaryId, 'Droit ouvert (avec versement)');
                     rsjFolderState = 'Droit ouvert (avec versement)';
                 }
@@ -125,7 +127,7 @@ async function importStates(_beneficiaryId, _insertisId, _data) {
 
             case 'Suspendue':
                 if (rsjFolderState == 'Droit ouvert (avec versement)') {
-                    logger.log(`Updating RSJ folder state to 'Droit ouvert (sans versement)' ...`, `instructions/${_data.id}.txt`);
+                    logger.log(`Updating RSJ folder state to 'Droit ouvert (sans versement)' ...`, `${instructionsLogFolder}${_data.id}.txt`);
                     beneficiaries.updateState(_beneficiaryId, 'Droit ouvert (sans versement)');
                     rsjFolderState = 'Droit ouvert (sans versement)';
                 }
@@ -133,7 +135,7 @@ async function importStates(_beneficiaryId, _insertisId, _data) {
 
             case 'Terminée':
                 if (rsjFolderState == 'Droit ouvert (avec versement)') {
-                    logger.log(`Updating RSJ folder state to 'Droit ouvert (sans versement)' ...`, `instructions/${_data.id}.txt`);
+                    logger.log(`Updating RSJ folder state to 'Droit ouvert (sans versement)' ...`, `${instructionsLogFolder}${_data.id}.txt`);
                     beneficiaries.updateState(_beneficiaryId, 'Droit ouvert (sans versement)');
                     rsjFolderState = 'Droit ouvert (sans versement)';
                 }
@@ -141,10 +143,10 @@ async function importStates(_beneficiaryId, _insertisId, _data) {
         }
 
         if (stateData.status == '3') {
-            logger.log(`Importing additional state 'Terminé' on previous instruction ...`, `instructions/${_data.id}.txt`);
+            logger.log(`Importing additional state 'Terminé' on previous instruction ...`, `${instructionsLogFolder}${_data.id}.txt`);
             let previousInstructionId = await instructions.getPreviousInstructionId(_beneficiaryId, instructionId);
             if (!previousInstructionId) {
-                logger.warning(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Instruction not found before instruction #${instructionId}.`, 'states.js:importStates', [ `instructions/${_data.id}.txt`, 'instructions/warning.txt' ]);
+                logger.warning(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Instruction not found before instruction #${instructionId}.`, 'states.js:importStates', [ `${instructionsLogFolder}${_data.id}.txt`, `${instructionsLogFolder}${warningFile}` ]);
                 previousInstructionId = instructionId;
             }
             const previousInstructionLastState = await getLastState(previousInstructionId);
@@ -152,17 +154,17 @@ async function importStates(_beneficiaryId, _insertisId, _data) {
                 if (!FINAL_STATE.includes(previousInstructionLastState)) {
                     const additionalStateId = await insert(previousInstructionId, 'Terminée', stateDate, '');
                     if (!additionalStateId) {
-                        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Failed to import state 'Terminé' on instruction #${previousInstructionId}.`, 'state.js:importStates', [ `instructions/${_data.id}.txt`, 'instructions/error.txt' ]);
+                        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Failed to import state 'Terminé' on instruction #${previousInstructionId}.`, 'states.js:importStates', [ `${instructionsLogFolder}${_data.id}.txt`, `${instructionsLogFolder}${errorFile}` ]);
                     }
                 }
             } else {
-                logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - No state found on instruction #${previousInstructionId}.`, 'state.js:importStates', [ `instructions/${_data.id}.txt`, 'instructions/error.txt' ]);
+                logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - No state found on instruction #${previousInstructionId}.`, 'states.js:importStates', [ `${instructionsLogFolder}${_data.id}.txt`, `${instructionsLogFolder}${errorFile}` ]);
             }
         }
 
         const stateId = await insert(instructionId, state, stateDate, comment);
         if (!stateId) {
-            logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Failed to import state '${state}' on instruction #${instructionId}.`, 'state.js:importStates', [ `instructions/${_data.id}.txt`, 'instructions/error.txt' ]);
+            logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Failed to import state '${state}' on instruction #${instructionId}.`, 'states.js:importStates', [ `${instructionsLogFolder}${_data.id}.txt`, `${instructionsLogFolder}${errorFile}` ]);
         }
     }
 

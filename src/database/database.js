@@ -9,7 +9,7 @@ const RETRY_COOLDOWN = 2000;
 var connection;
 
 function connect() {
-    const connection = new pg.Client(config.get());
+    const connection = new pg.Client(config);
 
     return new Promise((resolve, reject) => {
         connection.connect(error => {

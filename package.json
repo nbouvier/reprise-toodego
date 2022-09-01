@@ -5,10 +5,12 @@
   "main": "main.js",
   "scripts": {
     "test": "mocha --recursive",
-    "dev": "node ./main.js --config=.env.dev",
-    "prod": "node ./main.js --config=.env",
-    "fetch-dev": "node ./init.js --config=.env.dev --instructions=[364,425,427] --payments=[292,293,294,298,299,301,374,384,387,377,385,389]",
-    "fetch-prod": "node ./init.js --config=.env"
+    "import-dev": "node ./import.js --config=./config/.env.dev",
+    "import-prod": "node ./import.js --config=./config/.env",
+    "export-dev": "node ./export.js --config=./config/.env.dev --instructions=[364,425,427] --payments=[292,293,294,298,299,301,374,384,387,377,385,389]",
+    "export-prod": "node ./export.js --config=./config/.env",
+    "dev": "node ./app.js",
+    "prod": "node ./app.js"
   },
   "author": "",
   "license": "ISC",
@@ -17,6 +19,7 @@
     "cli-progress": "^3.11.2",
     "deep-equal-in-any-order": "^2.0.0",
     "dotenv": "^16.0.0",
+    "express": "^4.18.1",
     "minimist": "^1.2.6",
     "mocha": "^10.0.0",
     "node-fetch": "^3.2.4",

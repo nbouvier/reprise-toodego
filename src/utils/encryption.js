@@ -1,11 +1,13 @@
 import { createCipheriv, createDecipheriv, scrypt } from 'crypto';
 import { promisify } from 'util';
 
+import { insertisEncryptKey, insertisEncryptIv } from '../../config/config.js';
+
 export async function encrypt(_value) {
     if (!_value) return null;
 
-    const key = await promisify(scrypt)(process.env.INSERTIS_ENCRYPT_KEY, 'salt', 32);
-    const iv = Buffer.from(process.env.INSERTIS_ENCRYPT_IV);
+    const key = await promisify(scrypt)(insertisEncryptKey, 'salt', 32);
+    const iv = Buffer.from(insertisEncryptIv);
     const cipher = createCipheriv('aes-256-cbc', key, iv);
     const encrypted = Buffer.concat([ cipher.update(_value), cipher.final() ]).toString('hex');
 
@@ -15,8 +17,8 @@ export async function encrypt(_value) {
 export async function decrypt(_value) {
     if (!_value) return null;
 
-    const key = await promisify(scrypt)(process.env.INSERTIS_ENCRYPT_KEY, 'salt', 32);
-    const iv = Buffer.from(process.env.INSERTIS_ENCRYPT_IV);
+    const key = await promisify(scrypt)(insertisEncryptKey, 'salt', 32);
+    const iv = Buffer.from(insertisEncryptIv);
     const decipher = createDecipheriv('aes-256-cbc', key, iv);
     const decrypted = Buffer.concat([ decipher.update(Buffer.from(_value, 'hex')), decipher.final() ]).toString();
 

@@ -1,3 +1,5 @@
+import { instructionsLogFolder, errorFile } from '../config/config.js';
+
 import db from './database/database.js';
 
 import api from './utils/api.js';
@@ -11,21 +13,21 @@ import documents from './documents.js';
 // Import payment data
 // Update beneficiary data
 export async function importRib(_beneficiaryId, _data) {
-    logger.log(`Importing banking document ...`, `instructions/${_data.id}.txt`);
+    logger.log(`Importing banking document ...`, `${instructionsLogFolder}${_data.id}.txt`);
     const documentId = await documents.importBankingDocument(_beneficiaryId, _data);
     if (!documentId) {
-        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Failed to import banking document.`, 'rib.js:importRib', [ `instructions/${_data.id}.txt`, 'instructions/error.txt' ]);
+        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Failed to import banking document.`, 'rib.js:importRib', [ `${instructionsLogFolder}${_data.id}.txt`, `${instructionsLogFolder}${errorFile}` ]);
         return;
     }
 
-    logger.log('Importing rib ...', `instructions/${_data.id}.txt`);
+    logger.log('Importing rib ...', `${instructionsLogFolder}${_data.id}.txt`);
     const ribId = await insert(documentId, _data);
     if (!documentId) {
-        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Failed to import rib.`, 'rib.js:importRib', [ `instructions/${_data.id}.txt`, 'instructions/error.txt' ]);
+        logger.error(`Instruction #${_data.id} - Beneficiary #${_beneficiaryId} - Failed to import rib.`, 'rib.js:importRib', [ `${instructionsLogFolder}${_data.id}.txt`, `${instructionsLogFolder}${errorFile}` ]);
         return;
     }
 
-    logger.log('Updating beneficiary ...', `instructions/${_data.id}.txt`);
+    logger.log('Updating beneficiary ...', `${instructionsLogFolder}${_data.id}.txt`);
     await beneficiaries.updateRibId(_beneficiaryId, ribId);
 }
 

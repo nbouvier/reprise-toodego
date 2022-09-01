@@ -12,4 +12,4 @@ data*_dev/
 
 .git/
 
-sql/prod_setup/backup_*
+sql/prod*

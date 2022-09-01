@@ -22,7 +22,7 @@ describe('instructions.js', function() {
 
     describe('#getSqlSelectInstructionExpectedPayments()', function() {
         it('should return correct SQL subquery', async function() {
-            const sql = `(SELECT "id" AS "instructionRsjId", CASE WHEN "paymentCounterProposal" = false THEN SUBSTRING("paymentDuration" FROM 1 FOR 1)::INTEGER WHEN "paymentCounterProposal" = true THEN SUBSTRING("paymentCounterDuration" FROM 1 FOR 1)::INTEGER END AS "expectedNumberOfPayments" FROM "instruction_rsj" WHERE "paymentCounterProposal" IS NOT null)`;
+            const sql = `(SELECT "id" AS "instructionRsjId", CASE WHEN "paymentCounterProposal" = false THEN "paymentDuration" WHEN "paymentCounterProposal" = true THEN "paymentCounterDuration" END AS "expectedNumberOfPayments" FROM "instruction_rsj" WHERE "paymentCounterProposal" IS NOT null)`;
             expect(await instructions.getSqlSelectInstructionExpectedPayments()).to.equal(sql);
         });
     });
@@ -195,7 +195,7 @@ describe('instructions.js', function() {
         it('should update instruction_rsj properties', async function() {
             expect(row.paymentCounterProposal).to.be.false;
             expect(row.paymentAmount).to.equal(400);
-            expect(row.paymentDuration).to.equal('3 mois');
+            expect(row.paymentDuration).to.equal(3);
             expect(row.paymentOpinion).to.equal('test');
         });
 
@@ -222,7 +222,7 @@ describe('instructions.js', function() {
         it('should update instruction_rsj properties', async function() {
             expect(row.paymentCounterProposal).to.be.true;
             expect(row.paymentCounterAmount).to.equal(400);
-            expect(row.paymentCounterDuration).to.equal('3 mois');
+            expect(row.paymentCounterDuration).to.equal(3);
             expect(row.paymentCounterComment).to.equal('test');
         });
 

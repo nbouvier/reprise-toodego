@@ -1,16 +1,18 @@
 import { signURL } from './signature.js';
 
+import { toodegoUrl, toodegoInstructionPath } from '../../config/config.js';
+
 export function getSchemaUrl(_path) {
-    const path = process.env.TOODEGO_INSTRUCTION_PATH ? '/demande-de-rsa-jeunes' : '/historique-des-paiements-des-jeunes';
-    return signURL(`${process.env.TOODEGO_URL}${path}/schema`);
+    const path = toodegoInstructionPath ? '/demande-de-rsa-jeunes' : '/historique-des-paiements-des-jeunes';
+    return signURL(`${toodegoUrl}${path}/schema`);
 }
 
 export function getListUrl(_path) {
-    return signURL(`${process.env.TOODEGO_URL}${_path}list/`);
+    return signURL(`${toodegoUrl}${_path}list/`);
 }
 
 export function getFormUrl(_path, _id) {
-    return signURL(`${process.env.TOODEGO_URL}${_path}${_id}`);
+    return signURL(`${toodegoUrl}${_path}${_id}`);
 }
 
 const fetcher = { getSchemaUrl, getListUrl, getFormUrl };
