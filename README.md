@@ -57,3 +57,14 @@ Penser à précéder la liste d'arguments par `--`
 ex : `npm run prod -- --config=.env --port=80`.  
 Ne pas précéder les paramètres par `--` dans les requêtes POST
 ex : `POST [...] config=.env port=80`.
+
+
+### Docker-compose
+Ajouter à minima ces lignes dans le fichier `docker-compose.yml`.
+> reprise-toodego:
+>   container_name: reprise-toodego
+>   build:
+>     context: ../reprise-toodego
+>     dockerfile: ./Dockerfile
+>   networks:
+>     - insertion-network
