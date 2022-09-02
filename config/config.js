@@ -29,6 +29,7 @@ export const logFile = process.env.LOG_FILE;
 export const warningFile = process.env.WARNING_FILE;
 export const errorFile = process.env.ERROR_FILE;
 
+export const dataFolder = process.env.DATA_FOLDER;
 export const instructionsDataFolder = process.env.INSTRUCTIONS_DATA_FOLDER;
 export const paymentsDataFolder = process.env.PAYMENTS_DATA_FOLDER;
 
@@ -39,7 +40,7 @@ const config = {
     insertisEncryptKey, insertisEncryptIv,
     logFolder, instructionsLogFolder, paymentsLogFolder,
     fetchLogFile, logFile, warningFile, errorFile,
-    instructionsDataFolder, paymentsDataFolder
+    dataFolder, instructionsDataFolder, paymentsDataFolder
 };
 
 export default config;

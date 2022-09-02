@@ -1,5 +1,5 @@
 config/.env*
-!config/.env.sample
+!config/.env
 
 node_modules/
 package-lock.json

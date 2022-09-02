@@ -3,27 +3,31 @@ import minimist from 'minimist';
 const args = minimist(process.argv.slice(2));
 import cliProgress from 'cli-progress';
 
-import { logFolder, instructionsLogFolder, paymentsLogFolder, fetchLogFile, toodegoInstructionPath, toodegoPaymentPath, instructionsDataFolder, paymentsDataFolder } from './config/config.js';
+import { logFolder, instructionsLogFolder, paymentsLogFolder, fetchLogFile, toodegoInstructionPath, toodegoPaymentPath, dataFolder, instructionsDataFolder, paymentsDataFolder } from './config/config.js';
 import api from './src/utils/api.js';
 import logger from './src/utils/logger.js';
 
 const cliBar = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
 
+if (!fs.existsSync(logFolder)) {
+    fs.mkdirSync(logFolder);
+}
+
+if (!fs.existsSync(dataFolder)) {
+    fs.mkdirSync(dataFolder);
+}
+
 if (!args['skip-instructions']) {
     const allowedInstructions = args.instructions ? JSON.parse(args.instructions) : null;
-
-    if (!fs.existsSync(instructionsDataFolder)) {
-        fs.mkdirSync(instructionsDataFolder);
-    }
-
-    if (!fs.existsSync(logFolder)) {
-        fs.mkdirSync(logFolder);
-    }
 
     if (!fs.existsSync(instructionsLogFolder)) {
         fs.mkdirSync(instructionsLogFolder);
     } else {
         fs.appendFileSync(`${instructionsLogFolder}${fetchLogFile}`, '============================================================================\n');
+    }
+
+    if (!fs.existsSync(instructionsDataFolder)) {
+        fs.mkdirSync(instructionsDataFolder);
     }
 
     if (args['replay-instructions']) {
@@ -64,18 +68,14 @@ if (!args['skip-instructions']) {
 if (!args['skip-payments']) {
     const allowedPayments = args.payments ? JSON.parse(args.payments) : null;
 
-    if (!fs.existsSync(paymentsDataFolder)) {
-        fs.mkdirSync(paymentsDataFolder);
-    }
-
-    if (!fs.existsSync(logFolder)) {
-        fs.mkdirSync(logFolder);
-    }
-
     if (!fs.existsSync(paymentsLogFolder)) {
         fs.mkdirSync(paymentsLogFolder);
     } else {
         fs.appendFileSync(`${paymentsLogFolder}${fetchLogFile}`, '============================================================================\n');
+    }
+
+    if (!fs.existsSync(paymentsDataFolder)) {
+        fs.mkdirSync(paymentsDataFolder);
     }
 
     if (args['replay-payments']) {
