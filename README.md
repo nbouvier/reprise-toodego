@@ -60,13 +60,28 @@ ex : `POST [...] config=.env port=80`.
 
 
 ### Docker-compose
-Ajouter à minima ces lignes dans le fichier `docker-compose.yml`.
+Penser à éditer le fichier `docker-compose.yml`.
 <pre>
-> reprise-toodego:  
->   container_name: reprise-toodego  
->   build:  
->     context: ../reprise-toodego  
->     dockerfile: ./Dockerfile  
->   networks:  
->     - insertion-network  
+> services:
+>   reprise-toodego:  
+>     container_name: reprise-toodego  
+>     build:  
+>       context: ../reprise-toodego  
+>       dockerfile: ./Dockerfile  
+>     networks:  
+>       - insertion-network
+>     volumes:
+>       - "../reprise-toodego:/usr/src/app"
+>       - node_modules_reprise_toodego:/usr/src/app/node_modules
+>       - logs_reprise_toodego:/usr/src/app/logs
+>       - data_reprise_toodego:/usr/src/app/data
+>     labels:
+>       - traefik.enable=true
+>       - "traefik.frontend.rule=Host:reprise-toodego.localhost"
+>       - traefik.port=3030
+>
+> volumes:
+>   node_modules_reprise_toodego: null
+>   logs_reprise_toodego: null
+>   data_reprise_toodego: null
 </pre>
