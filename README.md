@@ -61,6 +61,7 @@ ex : `POST [...] config=.env port=80`.
 
 ### Docker-compose
 Ajouter à minima ces lignes dans le fichier `docker-compose.yml`.
+<pre>
 > reprise-toodego:  
 >   container_name: reprise-toodego  
 >   build:  
@@ -68,3 +69,4 @@ Ajouter à minima ces lignes dans le fichier `docker-compose.yml`.
 >     dockerfile: ./Dockerfile  
 >   networks:  
 >     - insertion-network  
+</pre>
