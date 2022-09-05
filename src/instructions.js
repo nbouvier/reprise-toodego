@@ -4,7 +4,7 @@ const args = minimist(process.argv.slice(2));
 import cliProgress from 'cli-progress';
 
 import config from '../config/config.js';
-const config = { instructionsDataFolder, instructionsLogFolder, logFile, errorFile };
+const { instructionsDataFolder, instructionsLogFolder, logFile, errorFile } = config;
 
 import db from './database/database.js';
 
