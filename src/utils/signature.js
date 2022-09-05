@@ -1,7 +1,8 @@
 import crypto from 'crypto';
 import url from 'url';
 
-import { toodegoUser, toodegoUrl, toodegoKey } from '../../config/config.js';
+import config from '../../config/config.js';
+const { toodegoUser, toodegoUrl, toodegoKey } = config;
 
 export function signURL(_url) {
     let parsedURL = url.parse(_url, true);

@@ -1,6 +1,7 @@
 import db from './database/database.js';
 
-import { instructionsLogFolder } from '../config/config.js';
+import config from '../config/config.js';
+const { instructionsLogFolder } = config;
 
 import logger from './utils/logger.js';
 import sqlBuilder from './utils/sqlBuilder.js';

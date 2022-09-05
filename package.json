@@ -15,6 +15,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "camelcase": "^7.0.0",
     "chai": "^4.3.6",
     "cli-progress": "^3.11.2",
     "deep-equal-in-any-order": "^2.0.0",

@@ -3,7 +3,9 @@ import minimist from 'minimist';
 const args = minimist(process.argv.slice(2));
 import cliProgress from 'cli-progress';
 
-import { logFolder, instructionsLogFolder, paymentsLogFolder, fetchLogFile, toodegoInstructionPath, toodegoPaymentPath, dataFolder, instructionsDataFolder, paymentsDataFolder } from './config/config.js';
+import config from './config/config.js';
+const { logFolder, instructionsLogFolder, paymentsLogFolder, fetchLogFile, toodegoInstructionPath, toodegoPaymentPath, dataFolder, instructionsDataFolder, paymentsDataFolder }  = config;
+
 import api from './src/utils/api.js';
 import logger from './src/utils/logger.js';
 

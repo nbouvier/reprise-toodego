@@ -1,6 +1,7 @@
 import db from './database/database.js';
 
-import { instructionsLogFolder, errorFile } from '../config/config.js';
+import config from '../config/config.js';
+const { instructionsLogFolder, errorFile } = config;
 
 import logger from './utils/logger.js';
 import { encrypt } from './utils/encryption.js';

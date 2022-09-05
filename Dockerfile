@@ -1,8 +1,7 @@
-FROM node:16.15.1
+FROM node:16.15.1-alpine
 
-RUN mkdir app
-WORKDIR /usr/src/app/
-ADD . .
+WORKDIR /app
+COPY . .
 RUN npm i
 
-ENTRYPOINT ["npm", "run", "prod", "--", "--port=3030"]
+ENTRYPOINT ["npm", "run", "prod"]

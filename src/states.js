@@ -1,4 +1,5 @@
-import { instructionsLogFolder, warningFile, errorFile } from '../config/config.js';
+import config from '../config/config.js';
+const { instructionsLogFolder, warningFile, errorFile } = config;
 
 import db from './database/database.js';
 

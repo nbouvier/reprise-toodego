@@ -1,7 +1,8 @@
 import { createCipheriv, createDecipheriv, scrypt } from 'crypto';
 import { promisify } from 'util';
 
-import { insertisEncryptKey, insertisEncryptIv } from '../../config/config.js';
+import config from '../../config/config.js';
+const { insertisEncryptKey, insertisEncryptIv } = config;
 
 export async function encrypt(_value) {
     if (!_value) return null;

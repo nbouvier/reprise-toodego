@@ -1,6 +1,7 @@
 import fetch from 'node-fetch';
 
-import { toodegoUrl } from '../../config/config.js';
+import config from '../../config/config.js';
+const { toodegoUrl } = config;
 
 import { signURL } from './signature.js';
 

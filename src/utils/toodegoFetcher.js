@@ -1,6 +1,7 @@
 import { signURL } from './signature.js';
 
-import { toodegoUrl, toodegoInstructionPath } from '../../config/config.js';
+import config from '../../config/config.js';
+const { toodegoUrl, toodegoInstructionPath } = config;
 
 export function getSchemaUrl(_path) {
     const path = toodegoInstructionPath ? '/demande-de-rsa-jeunes' : '/historique-des-paiements-des-jeunes';

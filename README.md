@@ -1,15 +1,16 @@
 # Reprise de donnée Toodego
 Script de reprise de donnée de Toodego vers Insertis dans le cadre du déploiement
 du module pour le Revenu de Solidarité Jeune.
+
+
 ## Fonctionnement
 Les scripts peuvent aussi bien être lancés en ligne de commande que via une requête
-HTTP si le serveur est lancé. Voir les [URLs](#urls) à disponibles.
+HTTP si le serveur est lancé. Voir les [URLs](#urls) disponibles.
 
 
 ### Scripts
 - `npm run prod`  
-Lance le script d'import de donner. Les paramètres `--config` et `--port` de la
-section [Paramètre](#parametres) peuvent être passés.
+Lance le serveur pour utiliser l'API.
 - `npm run export-prod`  
 Lance le script d'import de donner. Les paramètres de la section
 [Paramètre](#parametres) peuvent être passés.
@@ -29,12 +30,6 @@ de la requête.
 
 
 ### <a name="parametres"></a>Paramètres
-- `--port=<port>`
-Lancer le serveur sur un port défini.
-
-- `--config=<file>`  
-Utiliser ce fichier de configuration pour les variables d'environnement.
-
 - `--skip-intructions`  
 Ne pas exporter / importer les instructions.
 
@@ -60,7 +55,8 @@ ex : `POST [...] config=.env port=80`.
 
 
 ### Docker-compose
-Penser à éditer le fichier `docker-compose.yml`.
+Penser à éditer le fichier `docker-compose.yml`.  
+Example :
 <pre>
 > services:
 >   reprise-toodego:  
@@ -68,13 +64,14 @@ Penser à éditer le fichier `docker-compose.yml`.
 >     build:  
 >       context: ../reprise-toodego  
 >       dockerfile: ./Dockerfile  
+>     environment:
+>       ENV: prod
+>       PROT: 3030
 >     networks:  
 >       - insertion-network
 >     volumes:
->       - "../reprise-toodego:/usr/src/app"
->       - node_modules_reprise_toodego:/usr/src/app/node_modules
->       - logs_reprise_toodego:/usr/src/app/logs
->       - data_reprise_toodego:/usr/src/app/data
+>       - ./logs_reprise_toodego:/app/logs
+>       - ./data_reprise_toodego:/app/data
 >     labels:
 >       - traefik.enable=true
 >       - "traefik.frontend.rule=Host:reprise-toodego.localhost"

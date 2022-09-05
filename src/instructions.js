@@ -3,7 +3,8 @@ import minimist from 'minimist';
 const args = minimist(process.argv.slice(2));
 import cliProgress from 'cli-progress';
 
-import { instructionsDataFolder, instructionsLogFolder, logFile, errorFile } from '../config/config.js';
+import config from '../config/config.js';
+const config = { instructionsDataFolder, instructionsLogFolder, logFile, errorFile };
 
 import db from './database/database.js';
 

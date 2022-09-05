@@ -2,7 +2,9 @@ import fs from 'fs';
 import minimist from 'minimist';
 const args = minimist(process.argv.slice(2));
 
-import { logFolder, instructionsLogFolder, paymentsLogFolder, logFile, warningFile, errorFile } from './config/config.js';
+import config from './config/config.js';
+const { logFolder, instructionsLogFolder, paymentsLogFolder, logFile, warningFile, errorFile } = config;
+
 import logger from './src/utils/logger.js';
 
 import { importInstructions } from './src/instructions.js';

@@ -1,6 +1,7 @@
 import fs from 'fs';
 
-import { env, logFolder, logFile, warningFile, errorFile } from '../../config/config.js';
+import config from '../../config/config.js';
+const { env, logFolder, logFile, warningFile, errorFile } = config;
 
 const TYPES = { NULL: '', INFO: '[INFO] ', ERROR: '[ERROR] ', WARNING: '[WARNING] ' };
 
