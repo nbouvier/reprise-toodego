@@ -1,0 +1,35 @@
+# Official framework image. Look for the different tagged releases at:
+# https://hub.docker.com/r/library/node/tags/
+# BACK
+image: ${CI_DEPENDENCY_PROXY_DIRECT_GROUP_IMAGE_PREFIX}/node:16.15.1-alpine
+
+variables:
+    DOCKER_TLS_CERTDIR: ''
+    DOCKER_HOST: tcp://docker:2375/
+    DOCKER_DRIVER: overlay2
+    DEPENDENCY_PROXY: ${CI_DEPENDENCY_PROXY_DIRECT_GROUP_IMAGE_PREFIX}/
+
+stages:
+    - docker
+
+before_script:
+    - npm install
+
+cache:
+    paths:
+        - node_modules/
+        
+docker:
+    stage: docker
+    image: ${CI_DEPENDENCY_PROXY_DIRECT_GROUP_IMAGE_PREFIX}/docker:20.10.9-git
+    services:
+        - name: ${CI_DEPENDENCY_PROXY_DIRECT_GROUP_IMAGE_PREFIX}/docker:20.10.9-dind
+          alias: docker
+    before_script:
+        - docker logout
+    script:
+        - docker login ${CI_DEPENDENCY_PROXY_SERVER} -u ${CI_DEPENDENCY_PROXY_USER} -p ${CI_DEPENDENCY_PROXY_PASSWORD}
+        - docker build -t $CI_REGISTRY/$REGISTRY_PATH/reprise-toodego:rc --build-arg DEPENDENCY_PROXY="$DEPENDENCY_PROXY" -f Dockerfile .
+        - echo "$CI_REGISTRY_PASSWORD" | docker login --username $CI_REGISTRY_USER --password-stdin https://$CI_REGISTRY/v1/
+        - echo "docker push $CI_REGISTRY/$REGISTRY_PATH/reprise-toodego:rc"
+        - docker push $CI_REGISTRY/$REGISTRY_PATH/reprise-toodego:rc

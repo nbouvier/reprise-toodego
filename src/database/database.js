@@ -1,6 +1,6 @@
 import pg from 'pg';
 
-import config from './dbConfig.js';
+import dbConfig from './dbConfig.js';
 
 import logger from '../utils/logger.js';
 
@@ -9,7 +9,7 @@ const RETRY_COOLDOWN = 2000;
 var connection;
 
 function connect() {
-    const connection = new pg.Client(config);
+    const connection = new pg.Client(dbConfig);
 
     return new Promise((resolve, reject) => {
         connection.connect(error => {

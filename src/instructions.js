@@ -71,9 +71,11 @@ export async function importInstructions() {
 
 export function getSqlSelectInstructionPayments() {
     return sqlBuilder.getSelect({
-        _select: [ '"instructionRsjId"', 'COUNT(*) AS "numberOfPayments"' ],
-        _from: [ '"rsj_payment"' ],
-        _groupBy: [ '"instructionRsjId"' ],
+        _select: [ 'rp."instructionRsjId"', 'COUNT(*) AS "numberOfPayments"' ],
+        _from: [ '"rsj_payment" rp' ],
+        _join: [ { _table: beneficiaries.getSqlSelectLastAcceptedStatusDate(), _as: 't', _on: [ 't."instructionRsjId" = rp."instructionRsjId"' ] } ],
+        _where: [ 'rp."paymentMonth" > t."statusDate"' ],
+        _groupBy: [ 'rp."instructionRsjId"' ],
         _subquery: true
     });
 }

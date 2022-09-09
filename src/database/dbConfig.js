@@ -1,10 +1,13 @@
-const config = {
-    host: process.env.DB_HOST || 'localhost',
-    database: process.env.DB_NAME || 'rsa',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    port: process.env.DB_PORT || '',
+import config from '../../config/config.js';
+const { dbHost, dbName, dbUser, dbPassword, dbPort } = config;
+
+const dbConfig = {
+    host: dbHost || 'localhost',
+    database: dbName || 'rsa',
+    user: dbUser || 'root',
+    password: dbPassword || '',
+    port: dbPort || '',
     dateStrings: true
 };
 
-export default config;
+export default dbConfig;

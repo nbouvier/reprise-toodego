@@ -15,7 +15,7 @@ describe('instructions.js', function() {
 
     describe('#getSqlSelectInstructionPayments()', function() {
         it('should return correct SQL subquery', async function() {
-            const sql = `(SELECT "instructionRsjId", COUNT(*) AS "numberOfPayments" FROM "rsj_payment" GROUP BY "instructionRsjId")`;
+            const sql = `(SELECT rp."instructionRsjId", COUNT(*) AS "numberOfPayments" FROM "rsj_payment" rp JOIN (SELECT DISTINCT ON (t."instructionRsjId") t."instructionRsjId", t."statusDate" FROM "traceability" t JOIN (SELECT DISTINCT ON ("beneficiaryId") "beneficiaryId", "id" AS "instructionRsjId" FROM "instruction_rsj" WHERE "status" <> 'En création' ORDER BY "beneficiaryId", "instructionDate" DESC, "id" DESC) a ON a."instructionRsjId" = t."instructionRsjId" WHERE t."status" = 'Acceptée' ORDER BY t."instructionRsjId", t."statusDate" DESC) t ON t."instructionRsjId" = rp."instructionRsjId" WHERE rp."paymentMonth" > t."statusDate" GROUP BY rp."instructionRsjId")`;
             expect(await instructions.getSqlSelectInstructionPayments()).to.equal(sql);
         });
     });

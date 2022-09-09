@@ -119,7 +119,7 @@ export async function importNextPaymentData() {
             'b_rsj."paymentDataId"'
         ],
         _from: [ '"instruction_rsj" i' ],
-        _join: [ { _table: '"beneficiary_rsj" b_rsj', _on: [ 'b_rsj."beneficiaryId" = i."beneficiaryId"' ] } ],
+        _join: [ { _table: '"beneficiary_rsj"', _as: 'b_rsj', _on: [ 'b_rsj."beneficiaryId" = i."beneficiaryId"' ] } ],
         _leftJoin: [
             { _table: instructions.getSqlSelectInstructionPayments(), _as: 'a', _on: [ 'a."instructionRsjId" = i."id"' ] },
             { _table: instructions.getSqlSelectInstructionExpectedPayments(), _as: 'b', _on: [ 'b."instructionRsjId" = i."id"' ] },
@@ -135,6 +135,8 @@ export async function importNextPaymentData() {
     const res = await db.query(sql);
 
     const date = new Date();
+    const cliBar = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
+    cliBar.start(res.rows.length, 0);
     for (let i=0; i<res.rows.length; i++) {
         let row = res.rows[i];
         logger.log(`Creating ${row.missingPayments} payments of ${row.paymentAmount}€ for beneficiary #${row.beneficiaryId}`, `${paymentsLogFolder}${logFile}`);
@@ -147,7 +149,9 @@ export async function importNextPaymentData() {
                 logger.error(`Beneficiary #${row.beneficiaryId} - Failed to create payment at month ${month}.`, 'payments.js:importNextPaymentData', [ `${paymentsLogFolder}${logFile}`, `${paymentsLogFolder}${errorFile}` ]);
             }
         }
+        cliBar.increment();
     }
+    cliBar.stop();
 }
 
 export function getSqlSelectStateId(_state) {
@@ -170,7 +174,7 @@ export function getSqlSelectRemainingPayment() {
 }
 
 export async function insert(_beneficiaryRsjId, _instructionId, _ribId, _amount, _paymentMonth, _stateDate, _state = 'Réalisé') {
-    const stateQuery = getSqlSelectStateId('Réalisé');
+    const stateQuery = getSqlSelectStateId(_state);
 
     const sql = sqlBuilder.getInsert({
       _insert: [ '"paymentDataId"', '"stateDate"', '"stateId"', '"amount"', '"paymentMonth"', '"beneficiaryRsjId"', '"instructionRsjId"' ],

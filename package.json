@@ -4,11 +4,11 @@
   "description": "",
   "main": "main.js",
   "scripts": {
-    "test": "mocha --recursive",
-    "import-dev": "node ./import.js --config=./config/.env.dev",
-    "import-prod": "node ./import.js --config=./config/.env",
-    "export-dev": "node ./export.js --config=./config/.env.dev --instructions=[364,425,427] --payments=[292,293,294,298,299,301,374,384,387,377,385,389]",
-    "export-prod": "node ./export.js --config=./config/.env",
+    "test": "SET CONFIG=./config/.env.test&& mocha --recursive",
+    "import-dev": "node ./import.js",
+    "import-prod": "node ./import.js",
+    "export-dev": "node ./export.js --instructions=[364,425,427] --payments=[292,293,294,298,299,301,374,384,387,377,385,389]",
+    "export-prod": "node ./export.js",
     "dev": "node ./app.js",
     "prod": "node ./app.js"
   },

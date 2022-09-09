@@ -43,15 +43,23 @@ Importer seulement les instructions correspondantes.
 Importer seulement les paiements correspondants.
 
 - `--replay-instructions`  
-Rejouer l'export / l'import des instructions.
+Rejouer l'export / l'import des instructions.  
+Lors de l'export, si le paramètre `--instructions` n'est pas renseigné, tous
+les fichiers de donnée des instructions seront supprimées. Si ce paramètre est
+renseigné, seuls les fichiers de donnée des instructions sélectionnées seront
+supprimés.
 
 - `--replay-payments`  
 Rejour l'export / l'import des paiements.  
+Lors de l'export, si le paramètre `--payments` n'est pas renseigné, tous
+les fichiers de donnée des paiements seront supprimées. Si ce paramètre est
+renseigné, seuls les fichiers de donnée des paiements sélectionnées seront
+supprimés.
 
 Penser à précéder la liste d'arguments par `--`
-ex : `npm run prod -- --config=.env --port=80`.  
+ex : `npm run import-prod -- --instructions=[5,10,20] --skip-payments`.  
 Ne pas précéder les paramètres par `--` dans les requêtes POST
-ex : `POST [...] config=.env port=80`.
+ex : `POST [...] instructions=[5,10,20] skip-payments=`.
 
 
 ### Docker-compose

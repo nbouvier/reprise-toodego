@@ -8,13 +8,13 @@ FROM "instruction_rsj"
 GROUP BY "beneficiaryId", "instructionDate"
 HAVING COUNT(*) > 1;
 
--- Bénéficiaires avec instructions à la même date
+-- Bénéficiaires avec même situation, bilan et engagements
 -- => 1 résultat = 1 référent qui a potentiellement fait n'importe quoi avec la duplication d'instruction
 -- => Supprimer les instructions inutiles
-SELECT ir1."beneficiaryId", ir1."instructionDate", ir2."instructionDate", ir2."instructionDate" - ir1."instructionDate" AS "dayDifference", ir1."comment", ir1."commitmentForNext3Months"
+SELECT ir1."beneficiaryId", ir1."instructionDate", ir2."instructionDate", ir2."instructionDate" - ir1."instructionDate" AS "dayDifference", ir1."situationComment", ir1."commitmentForNext3Months"
 FROM "instruction_rsj" ir1
 LEFT JOIN "instruction_rsj" ir2 ON ir1."beneficiaryId" = ir2."beneficiaryId" AND ir1."id" < ir2."id"
-WHERE ir1."comment" = ir2."comment" AND ir1."commitmentForNext3Months" = ir2."commitmentForNext3Months"
+WHERE ir1."situationComment" = ir2."situationComment" AND ir1."commitmentForNext3Months" = ir2."commitmentForNext3Months"
 ORDER BY ir2."instructionDate" - ir1."instructionDate";
 
 -- Instructions avec conclusion de paiement manquante (hors instruction En création)
@@ -35,7 +35,7 @@ WHERE i."paymentAmount" IS null AND s."status" <> 'En création';
 WITH "expected_payment_decision" AS (
 	SELECT
 		"id" AS "instructionRsjId",
-		SUBSTRING("useTitleComment" from '%: #"% mois#"%' for '#') AS "expectedDuration",
+		SUBSTRING("useTitleComment" from '%: #"%#" mois%' for '#')::INTEGER AS "expectedDuration",
 		SUBSTRING("useTitleComment" from '%, #"%#"€%' for '#')::INTEGER AS "expectedAmount"
 	FROM "instruction_rsj"
 	WHERE "useTitleComment" IS NOT null
@@ -84,8 +84,8 @@ WHERE ep."expectedPaymentAmount" <> p."amount";
 -- => Si l'instruction est en cours, ce sont sûrement des paiements Prévu qu'il faut créer en bdd
 WITH "instruction_expected_payments" AS (
 	SELECT "id" AS "instructionRsjId", CASE
-		WHEN "paymentCounterProposal" = false THEN SUBSTRING("paymentDuration" FROM 1 FOR 1)::INTEGER
-		WHEN "paymentCounterProposal" = true THEN SUBSTRING("paymentCounterDuration" FROM 1 FOR 1)::INTEGER
+		WHEN "paymentCounterProposal" = false THEN "paymentDuration"
+		WHEN "paymentCounterProposal" = true THEN "paymentCounterDuration"
 	END AS "expectedNumberOfPayments"
 	FROM "instruction_rsj"
 	WHERE "paymentCounterProposal" IS NOT null
@@ -128,12 +128,12 @@ WHERE "id" NOT IN (
 	WHERE "instructionRsjId" IS NOT null AND "status" = 'En création'
 );
 
--- Instruction avec plusieurs fois l'état Acceptée
+-- Instruction avec plusieurs fois l'état En création
 -- => Il y a sûrement eu un soucis lors de la phase de lien des états, les états sont sûrement sur la mauvaise instruction
 SELECT i."beneficiaryId", i."id" AS "instructionId"
 FROM "instruction_rsj" i
 JOIN "traceability" t ON t."instructionRsjId" = i."id"
-WHERE t."status" = 'Acceptée'
+WHERE t."status" = 'En création'
 GROUP BY i."beneficiaryId", i."id"
 HAVING COUNT(*) > 1;
 
@@ -142,7 +142,8 @@ HAVING COUNT(*) > 1;
 -- Âge >= 25 => Clos
 -- Nombre de paiement >= 24 => Clos
 -- Paiements prévus > 0 => Droit ouvert (avec versement)
--- Paiements réalisés > 0 => Droit ouvert (sans versement)
+-- Paiements réalisés > 0 ET dernier paiement ce mois-ci => Droit ouvert (avec versement)
+-- Paiements réalisés > 0 ET pas de dernier paiement ce mois-ci => Droit ouvert (sans versement)
 -- Paiements = 0 && dernier état = Analyse en cours / Demande d'information => En analyse
 -- Paiements = 0 && dernier état = Refusée => Refusée
 -- Sinon => Non orienté
@@ -160,13 +161,19 @@ WITH "beneficiary_payments" AS (
 	JOIN "traceability" t ON t."instructionRsjId" = i."id"
 	WHERE t."status" <> 'En création'
 	ORDER BY i."beneficiaryId", t."statusDate" DESC
-),
-"beneficiary_expected_status" AS (
+), "beneficiary_last_payment" AS (
+	SELECT DISTINCT ON ("beneficiaryRsjId") "beneficiaryRsjId", "paymentMonth" AS "lastPaymentMonth"
+	FROM "rsj_payment"
+	ORDER BY "beneficiaryRsjId", "paymentMonth" DESC
+), "beneficiary_expected_status" AS (
 	SELECT br."beneficiaryId", CASE
 		WHEN AGE(CURRENT_DATE, b."birthDate") >= INTERVAL '25 YEARS' THEN 'Clos'
 		WHEN bp."allPayments" >= 24 THEN 'Clos'
 		WHEN bp."plannedPayments" > 0 THEN 'Droit ouvert (avec versement)'
-		WHEN bp."completedPayments" > 0 THEN 'Droit ouvert (sans versement)'
+		WHEN bp."completedPayments" > 0 THEN CASE
+			WHEN EXTRACT(MONTH FROM blp."lastPaymentMonth") = EXTRACT(MONTH FROM NOW()) THEN 'Droit ouvert (avec versement)'
+			ELSE 'Droit ouvert (sans versement)'
+		END
 		WHEN bp."allPayments" IS null AND bls."status" IN ('Analyse en cours', 'Demande d''information') THEN 'En analyse'
 		WHEN bp."allPayments" IS null AND bls."status" = 'Refusée' THEN 'Refusé'
 		ELSE 'Non orienté'
@@ -175,14 +182,16 @@ WITH "beneficiary_payments" AS (
 	JOIN "beneficiary" b ON b."id" = br."beneficiaryId"
 	LEFT JOIN "beneficiary_last_state" bls ON bls."beneficiaryId" = br."beneficiaryId"
 	LEFT JOIN "beneficiary_payments" bp ON bp."beneficiaryRsjId" = br."id"
+	LEFT JOIN "beneficiary_last_payment" blp ON blp."beneficiaryRsjId" = br."id"
 )
-SELECT br."beneficiaryId", bes."rsjExpectedStatus", rs."label" AS "rsjStatus", AGE(CURRENT_DATE, b."birthDate") AS "age", bls."status" AS "lastInstructionStatus", bp."completedPayments", bp."plannedPayments"
+SELECT br."beneficiaryId", bp."beneficiaryRsjId", bes."rsjExpectedStatus", rs."label" AS "rsjStatus", AGE(CURRENT_DATE, b."birthDate") AS "age", bls."status" AS "lastInstructionStatus", bp."completedPayments", bp."plannedPayments", blp."lastPaymentMonth"
 FROM "beneficiary_rsj" br
 JOIN "beneficiary" b ON b."id" = br."beneficiaryId"
 JOIN "rsj_state" rs ON rs."id" = br."stateId"
 LEFT JOIN "beneficiary_last_state" bls ON bls."beneficiaryId" = br."beneficiaryId"
 LEFT JOIN "beneficiary_payments" bp ON bp."beneficiaryRsjId" = br."id"
 JOIN "beneficiary_expected_status" bes ON bes."beneficiaryId" = br."beneficiaryId"
+LEFT JOIN "beneficiary_last_payment" blp ON blp."beneficiaryRsjId" = br."id"
 WHERE rs."label" <> bes."rsjExpectedStatus";
 
 -- Bénéficiaire avec dossier RSJ initialisé et sans instruction
@@ -208,3 +217,10 @@ SELECT br."beneficiaryId", rs."label" AS "status", br."rsjBeginDate", br."rsjEnd
 FROM "beneficiary_rsj" br
 JOIN "rsj_state" rs ON rs."id" = br."stateId"
 WHERE rs."label" = 'Clos' AND br."rsjEndDate" IS null;
+
+-- Bénéficiaire avec deux paiements au même mois
+-- => Supprimer un des paiements
+SELECT "beneficiaryRsjId", "paymentMonth"
+FROM "rsj_payment"
+GROUP BY "beneficiaryRsjId", "paymentMonth"
+HAVING COUNT(*) > 1;

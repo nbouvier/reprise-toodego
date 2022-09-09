@@ -18,6 +18,7 @@ export function getSqlSelectLastInstructionsId() {
     return sqlBuilder.getSelect({
         _select: [ 'DISTINCT ON ("beneficiaryId") "beneficiaryId"', '"id" AS "instructionRsjId"' ],
         _from: [ '"instruction_rsj"' ],
+        _where: [ `"status" <> 'En création'` ],
         _orderBy: [ '"beneficiaryId"', '"instructionDate" DESC', '"id" DESC' ],
         _subquery: true
     });
@@ -29,6 +30,16 @@ export function getSqlSelectLastAcceptedInstructionsId() {
         _from: [ '"traceability" t' ],
         _join: [ { _table: getSqlSelectLastInstructionsId(), _as: 'a', _on: [ 'a."instructionRsjId" = t."instructionRsjId"' ] } ],
         _where: [ `t."status" = 'Acceptée'` ],
+        _subquery: true
+    });
+}
+export function getSqlSelectLastAcceptedStatusDate() {
+    return sqlBuilder.getSelect({
+        _select: [ 'DISTINCT ON (t."instructionRsjId") t."instructionRsjId"', 't."statusDate"' ],
+        _from: [ '"traceability" t' ],
+        _join: [ { _table: getSqlSelectLastInstructionsId(), _as: 'a', _on: [ 'a."instructionRsjId" = t."instructionRsjId"' ] } ],
+        _where: [ `t."status" = 'Acceptée'` ],
+        _orderBy: [ 't."instructionRsjId"', 't."statusDate" DESC' ],
         _subquery: true
     });
 }
@@ -123,8 +134,8 @@ export async function closeAllowancesForAge() {
     const sql = sqlBuilder.getUpdate({
         _update: [ '"beneficiary_rsj" b_rsj' ],
         _set: [ `"stateId" = 5`, `"rsjEndDate" = INTERVAL '25 YEARS' + b."birthDate"`, '"reasonId" = 2' ],
-        _from: [ '"beneficiary" b' ],
-        _where: [ 'b."id" = b_rsj."beneficiaryId"', `AGE(CURRENT_DATE, b."birthDate") >= INTERVAL '25 YEARS'` ]
+        _from: [ '"beneficiary" b', '"rsj_state" rs' ],
+        _where: [ 'b."id" = b_rsj."beneficiaryId"', 'b_rsj."stateId" = rs."id"', `AGE(CURRENT_DATE, b."birthDate") >= INTERVAL '25 YEARS'`, `rs."label" = 'Droit ouvert (sans versement)'` ]
     });
 
     await db.query(sql);
@@ -141,6 +152,6 @@ export async function insertBeneficiaryRsj(_beneficiaryId) {
     return res[1].rows[0].id;
 }
 
-const beneficiaries = { importRsjFolder, getSqlSelectLastAcceptedInstructionsId, getId, getRsjId, getRibId, updateResidentialStatus, updateRibId, updateState, updateRemainingPayments, openAllowance, closeAllowancesForAge };
+const beneficiaries = { importRsjFolder, getSqlSelectLastAcceptedInstructionsId, getSqlSelectLastAcceptedStatusDate, getId, getRsjId, getRibId, updateResidentialStatus, updateRibId, updateState, updateRemainingPayments, openAllowance, closeAllowancesForAge };
 
 export default beneficiaries;

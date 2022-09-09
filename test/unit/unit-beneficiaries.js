@@ -12,15 +12,22 @@ describe('beneficiaries.js', function() {
 
     describe('#getSqlSelectLastInstructionsId()', function() {
         it('should return correct SQL subquery', async function() {
-            const sql = `(SELECT DISTINCT ON ("beneficiaryId") "beneficiaryId", "id" AS "instructionRsjId" FROM "instruction_rsj" ORDER BY "beneficiaryId", "instructionDate" DESC, "id" DESC)`;
+            const sql = `(SELECT DISTINCT ON ("beneficiaryId") "beneficiaryId", "id" AS "instructionRsjId" FROM "instruction_rsj" WHERE "status" <> 'En création' ORDER BY "beneficiaryId", "instructionDate" DESC, "id" DESC)`;
             expect(await getSqlSelectLastInstructionsId()).to.equal(sql);
         });
     });
 
     describe('#getSqlSelectLastAcceptedInstructionsId()', function() {
         it('should return correct SQL subquery', async function() {
-            const sql = `(SELECT t."instructionRsjId" FROM "traceability" t JOIN (SELECT DISTINCT ON ("beneficiaryId") "beneficiaryId", "id" AS "instructionRsjId" FROM "instruction_rsj" ORDER BY "beneficiaryId", "instructionDate" DESC, "id" DESC) a ON a."instructionRsjId" = t."instructionRsjId" WHERE t."status" = 'Acceptée')`;
+            const sql = `(SELECT t."instructionRsjId" FROM "traceability" t JOIN (SELECT DISTINCT ON ("beneficiaryId") "beneficiaryId", "id" AS "instructionRsjId" FROM "instruction_rsj" WHERE "status" <> 'En création' ORDER BY "beneficiaryId", "instructionDate" DESC, "id" DESC) a ON a."instructionRsjId" = t."instructionRsjId" WHERE t."status" = 'Acceptée')`;
             expect(await beneficiaries.getSqlSelectLastAcceptedInstructionsId()).to.equal(sql);
+        });
+    });
+
+    describe('#getSqlSelectLastAcceptedStatusDate()', function() {
+        it('should return correct SQL subquery', async function() {
+            const sql = `(SELECT DISTINCT ON (t."instructionRsjId") t."instructionRsjId", t."statusDate" FROM "traceability" t JOIN (SELECT DISTINCT ON ("beneficiaryId") "beneficiaryId", "id" AS "instructionRsjId" FROM "instruction_rsj" WHERE "status" <> 'En création' ORDER BY "beneficiaryId", "instructionDate" DESC, "id" DESC) a ON a."instructionRsjId" = t."instructionRsjId" WHERE t."status" = 'Acceptée' ORDER BY t."instructionRsjId", t."statusDate" DESC)`;
+            expect(await beneficiaries.getSqlSelectLastAcceptedStatusDate()).to.equal(sql);
         });
     });
 
@@ -189,7 +196,7 @@ describe('beneficiaries.js', function() {
         afterEach(async function() {
             const sql = sqlBuilder.getUpdate({
                 _update: [ '"beneficiary_rsj"' ],
-                _set: [ `"stateId" = 7`, `"rsjBeginDate" = null` ],
+                _set: [ `"stateId" = 4`, `"rsjBeginDate" = null` ],
                 _where: [ `"beneficiaryId" = 1` ]
             });
             await db.query(sql);
@@ -227,7 +234,7 @@ describe('beneficiaries.js', function() {
         afterEach(async function() {
             const sql = sqlBuilder.getUpdate({
                 _update: [ '"beneficiary_rsj"' ],
-                _set: [ '"stateId" = 7', '"rsjEndDate" = null' ],
+                _set: [ '"stateId" = 7', '"reasonId" = null', '"rsjEndDate" = null' ],
                 _where: [ '"beneficiaryId" = 1' ]
             });
             const res = await db.query(sql);
